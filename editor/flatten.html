@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- <script src='https://unpkg.com/@flatten-js/core'></script> -->
+</head>
+<svg id="stage" width="500" height="500"></svg>
+<div id="content" style="display:block; overflow:visible; position:absolute">
+  <div id="userLine" style="display:block; overflow:visible">
+
+  </div>
+
+</div>
+
+
+<script type="module">
+
+    //import Flatten from "./js/flatten-js.esm.js";
+    import Flatten,{ point, circle, segment,polygon, vector, line, multiline} from "./js/flatten-js.esm.js?xx=1";
+
+    let svgElement=document.getElementById("stage");
+    let newLine;
+    let drawing = false;
+
+    // const Flatten = globalThis["@flatten-js/core"];
+    // const {point, circle, segment, polygon, multiline} = Flatten;
+    
+    let entities=new Flatten.PlanarSet()
+    //window.entities=entities;
+        
+    // let s1 = segment(10,10,200,200);
+    // let s2 = segment(10,160,200,30);
+    // let c = circle(point(200, 110), 50);
+    // let ip = s1.intersect(s2);
+    // entities.add(c);
+    // entities.add(s1);
+    // entities.add(s2);
+    
+    //document.getElementById("stage").innerHTML = s1.svg() + s2.svg() + c.svg() + ip[0].svg();
+    document.getElementById("stage").innerHTML = entities.svg();
+    
+function onMouseDown(event) {
+
+  if(event.shiftKey){
+    console.log("shift")
+    var hits=entities.hit(new Flatten.Point(event.clientX,event.clientY))
+    console.log(hits);
+    return;
+  }
+
+  drawing = true;
+  newLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+
+  //newLine.setAttribute('id', 'line2');
+  newLine.setAttribute("stroke", "red");
+  newLine.setAttribute("x1", event.clientX);
+  newLine.setAttribute("y1", event.clientY);
+  newLine.setAttribute("x2", event.clientX);
+  newLine.setAttribute("y2", event.clientY);
+
+  svgElement.appendChild(newLine);
+}
+
+function onMouseMove(event) {
+  //Add code here
+  if (drawing) {
+    newLine.setAttribute("x2", event.clientX);
+    newLine.setAttribute("y2", event.clientY);
+  }
+}
+
+function onMouseUp(event) {
+    if(!drawing)
+        return;
+
+  drawing = false;
+  if(newLine)
+  {
+  let x1 =parseInt( newLine.getAttribute("x1"));
+  let y1 =parseInt( newLine.getAttribute("y1"));
+  let x2 =parseInt( newLine.getAttribute("x2"));
+  let y2 =parseInt( newLine.getAttribute("y2"));
+  //console.log([x1,y1,x2,y2])
+  let seg = segment(x1,y1,x2,y2);
+  
+  let allSegs=[];
+  entities.forEach((ent) => { 
+  	if(ent instanceof Flatten.Multiline)
+    {
+	    //console.log("isMulti")
+        let ip = [];
+
+      //if (polygon.isEmpty() || multiline.size === 0) {
+      //    return ip;
+      //}
+
+      for (let edge of ent) {
+            //console.log(edge)
+          let ip_edge =seg.intersect(edge.shape);
+          if(ip_edge.length){
+            console.log("ip_edge:"+JSON.stringify(ip_edge))
+            ent.addVertex(ip_edge[0],edge);
+            let newSegs=seg.split(ip_edge[0])
+            allSegs.push(newSegs[0])
+            seg=newSegs[1];
+          }
+          //let ip_sorted = edge.shape.sortPoints(ip_edge);  // TODO: support arc edge
+          //console.log("ip_sorted:"+ip_sorted)
+          //ip = [...ip, ...ip_sorted];
+          //console.log("ip:"+ip)
+      }
+    }
+    else{
+  		let intersections=seg.intersect(ent)
+    	console.log("count:"+intersections)
+    }
+
+  } )
+
+    allSegs.push(seg)
+    //console.log(allSegs);
+    let ml = multiline(allSegs)
+
+  	entities.add(ml);
+    //console.log("here")
+    var svg=""
+    
+    entities.forEach((ent) => { 
+        //if(ent instanceof Flatten.Multiline)
+        //    console.log("isMulti:"+ent.length)
+        //console.log(JSON.stringify(ent))
+        svg+=ent.svg({stroke:"#"+Math.floor(Math.random()*16777215).toString(16)})
+    });
+    document.getElementById("stage").innerHTML =svg;// entities.svg();
+    console.log(svg)
+  	//newline=null;
+  }
+}
+
+function setup() {
+  document.addEventListener("mousemove", onMouseMove);
+  document.addEventListener("mousedown", onMouseDown);
+  document.addEventListener("mouseup", onMouseUp);
+}
+
+window.onload = () => setup();
+
+
+    // let s1 = segment(10,10,200,200);
+    // let s2 = segment(10,160,200,30);
+    // let c = circle(point(200, 110), 50);
+    // let ip = s1.intersect(s2);
+    // console.log( JSON.stringify(ip));
+    
+    // let poly = polygon([
+    //     [
+    //     [0, 0],
+    //     [100, 0],
+    //     [100, 100],
+    //     [0, 100]
+    //     ],
+    //     [
+    //     [30, 50],
+    //     [50, 70],
+    //     [70, 50],
+    //     [50, 30]
+    //     ],
+    //     [
+    //     [40, 50],
+    //     [50, 70],
+    //     [60, 50],
+    //     [50, 30]
+    //     ]
+    // ]);
+    // let l = line(point(30, 40), vector(0, 1));
+    // let res_poly = poly.cutWithLine(l);
+
+    // console.log( JSON.stringify(res_poly));
+
+
+</script>

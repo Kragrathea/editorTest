@@ -1,0 +1,1 @@
+Version of three.js for testing editor ideas.
