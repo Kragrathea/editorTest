@@ -216,8 +216,101 @@ class Tool{
 	{}
   
   }
+class Entity{
+	constructor() {
+		this.id=THREE.MathUtils.generateUUID();
+	}
+}
+class Vertex extends Entity{
+	//edges()
+	//faces()
+	//loops()
+	//position=new THREE.Vector3;
+	constructor(position) {
+		//use weakset?
+		this.connections=new Set()//Entity ids
+		super()//important
+		this.position=new THREE.Vector3;
+	}
+	connect(otherEntity)
+	{
+		//todo should only be edge?
+		this.connections.add(this.id)[otherEntity.id]=otherEntity;//todo is otherEntity the right thing? 
+	}
+	copy(){	}
+	
+}
+class Entities{
+	addEdge(edge){
+		//from array of points
+
+		//clip lines against existing
+		//foreach edges in entities
+		//if ent.distance(edge) <threshold
+			//if colinear
+				//merge
+			//todo check not just ends same.
+			//todo handl co-linear
+			//preSplitEdges.push(ent)//needed?
+			//newSplitEdges.push(ent.split(intersection))
+			//newEdges.push(edge.split(intersection)
+		//prepend edge
+		//
+		//Check added edges to see if faces need to be created
+		//
+		// find loops
 
 
+		//_entities.push(newEdges)
+	}
+}
+class Edge{
+	//vertices=[ new THREE.Vertex(), new THREE.Vertex()];
+	constructor(vertex1,vertex2) {
+		this.vertices=[vertex1,vertex2]
+		
+		//connect the verts to this edge.
+		vertex1.connect(this)
+		vertex2.connect(this)
+
+	}
+	allConnected()
+	{
+		//walk verts to get edges
+	}
+
+
+	split(splitPoint)
+	{
+		//make sure point is on line
+		////newEdge.copy(this)
+		//newVert = new Vertex(splitPoint)
+		//newEdge= new Edge(this.v1, newVert)
+		//this.v2.disconnect(this)//remove this edge from v2 connections
+		//this.v2=newVert//new vert should already be connected right?
+		//return newEdge
+	}
+	splitDist(dist)
+	{
+		
+	}
+	commonFace(otherEdge)
+	{}
+	curve(){}
+	explodeCurve(){}
+	faces(){}
+	findFaces(){}
+	//isUsedBy(element)
+	//end(){}
+	//start(){}
+	//length(){}
+	//toLine(){}
+	//otherVertex(vertex){}
+	//isReversedIn(face){}
+	//smooth()
+	//soft()	
+
+}
 
 class InputPoint{
 	constructor(  ) {
@@ -239,6 +332,13 @@ class InputPoint{
 		this.viewCursorInferString="Nothing";
 		this.viewCursorValid=false;
 		this.intersectingObjects=[];
+	}
+	copy(source)
+	{
+		this.viewCursor.position.copy(source.viewCursor.position);
+		this.viewCursor.viewCursorValid=source.viewCursor.viewCursorValid;
+		this.viewCursor.viewCursorInferString=source.viewCursor.viewCursorInferString;
+
 	}
 
 	debugAxis = new THREE.AxesHelper( 1.1 )
@@ -370,7 +470,7 @@ class LineTool extends Tool {
 		const lineHelperVertices = [];
 		lineHelperVertices.push(
 			new THREE.Vector3( 0, 0, 0 ),
-			new THREE.Vector3( 1, 1, 0 ),
+			new THREE.Vector3( 0, 0, 0 ),
 		);
 		const geometry =new THREE.BufferGeometry().setFromPoints( lineHelperVertices );
 		//geometry.setAttribute('position', new THREE.Float32BufferAttribute(lineHelperVertices, 3));
@@ -381,15 +481,17 @@ class LineTool extends Tool {
 			color: 0xffffff,
 			linewidth: 5,
 			scale: 1,
-			dashSize: 0.1,
-			gapSize: 0.1,
+			dashSize: 0.05,
+			gapSize: 0.05,
 		} );
 
 		this.lineHelper = new THREE.Line( geometry,  dashedLineMaterial );
-		this.lineHelper.visible=true;
+		this.lineHelper.visible=false;
 
 	}
 
+	//line width via shaders example
+	//https://codepen.io/prisoner849/pen/wvdBerm
 
 	activate()
 	{
@@ -409,8 +511,18 @@ class LineTool extends Tool {
 	onMouseUp(event,position,view)
 	{
 		console.log("LineTool.onMouseUp:"+position)
+
+		if(event.button==2)//right button=cancel
+			{
+				this.firstIp.clear();
+				console.log("LineTool.onMouseUp:RightButton")
+				this.lineHelper.visible=false;
+				view.render()
+				return;
+			}
 		if(!this.firstIp.viewCursorValid){
 			this.firstIp.pick(view,position.x,position.y)
+			this.lineHelper.visible=true;
 			return;
 		}else
 		{
@@ -432,14 +544,36 @@ class LineTool extends Tool {
 				//edgeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(edgeVerts, 3));
 				edgeGeometry.needsUpdate=true;
 				
-				const edgeMaterial = new THREE.LineBasicMaterial( { color: 0xff00ff, toneMapped:false, linewidth: 2 } );//todo. Dont make new mat for every edge
+				const edgeMaterial = new THREE.LineBasicMaterial( { color: 0x000000, linewidth: 2 } );//todo. Dont make new mat for every edge
 
 				var edge = new THREE.Line( edgeGeometry,  edgeMaterial );
 				edge.name="Edge";
+				edge.renderOrder = 1;
 
 				view.editor.execute( new AddObjectCommand(view.editor, edge ) );
-				
-				this.firstIp.clear();
+				this.firstIp.copy(this.mouseIp);				
+
+				var iraycaster = new THREE.Raycaster();
+				iraycaster.linePrecision = 0.00001;
+
+				//get ray dist to other edges.
+				iraycaster.set( this.firstIp.viewCursor.position.clone(), this.mouseIp.viewCursor.position.clone().sub(this.firstIp.viewCursor.position).normalize() );
+				//console.log( iraycaster.intersectObjects( objects ));
+				var objects = view.scene.children;
+				var segIntersects = iraycaster.intersectObjects( objects );
+				if ( segIntersects.length > 0 ) {
+					for (var i = 0, len = segIntersects.length; i < len; i++) {
+						var intersect = segIntersects[ i ];
+						var inferedPoint = intersect.point; //on line
+						console.log(inferedPoint);
+						var irayPoint=iraycaster.ray.at(intersect.distance,new THREE.Vector3(0, 0, - 1));
+						console.log(irayPoint);
+						var dist= inferedPoint.distanceTo(irayPoint);	
+						console.log(dist);
+					}
+				}
+
+				//this.firstIp.clear();
 			}
 
 		}
@@ -460,8 +594,8 @@ class LineTool extends Tool {
 			this.lineHelper.geometry.attributes.position.array[3]=this.mouseIp.viewCursor.position.x;
 			this.lineHelper.geometry.attributes.position.array[4]=this.mouseIp.viewCursor.position.y;
 			this.lineHelper.geometry.attributes.position.array[5]=this.mouseIp.viewCursor.position.z;
-			this.lineHelper.geometry.needsUpdate=true;
-			this.lineHelper.geometry.setDrawRange( 0, 2 );
+			this.lineHelper.computeLineDistances()
+			this.lineHelper.geometry.attributes.position.needsUpdate=true;
 		}
 		//console.log("onMouseDown:"+[event,position,view]) 
 	}		

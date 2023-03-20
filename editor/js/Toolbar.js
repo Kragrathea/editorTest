@@ -31,7 +31,7 @@ function Toolbar( editor ) {
 
 	const lineToolIcon = document.createElement( 'img' );
 	lineToolIcon.title = strings.getKey( 'toolbar/translate' );
-	lineToolIcon.src = 'images/translate.svg';
+	lineToolIcon.src = 'images/line.svg';
 
 	const lineToolButton = new UIButton();
 	lineToolButton.dom.className = 'Button';

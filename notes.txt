@@ -1,0 +1,107 @@
+# Counter-clockwise angle from vector2 to vector1, as seen from normal.
+def angle_in_plane(vector1, vector2, normal = Z_AXIS)
+  Math.atan2((vector2 * vector1) % normal, vector1 % vector2)
+end
+
+def edge_angle(edge)
+  angle = angle_in_plane(edge.faces[0].normal, edge.faces[1].normal, edge.line[1])
+
+  # Assuming mesh is oriented, i.e. edge is reversed in exactly one out of the two
+  # faces. If not, the return value depends the order the faces are presented in.
+  edge.reversed_in?(edge.faces[0]) ? angle : -angle
+end
+
+def FindColinear(firstEdge)
+	
+	firstEdge.end.edges.each{|secondEdge|  
+		if(secondEdge!=firstEdge)
+			aDotB=firstEdge.line[1]%edge.line[1]
+			if(aDotB>0.99999999)
+				puts("Coline")
+			else
+				planeDir=(secondEdge.line[1]*firstEdge.line[1]).normalize
+				
+				if(alreadyDone.contains(planeDir))
+					continue;
+				else
+					alreadyDone.add(planeDir)
+				
+				curNode=secondEdge.end
+				nextEdge=bestEdgeFromNode(planeDir,curNode) #fits plane and min angle
+				while(nextEdge)#while there is a edge that fits the plane
+					if nextEdge = firstEdge
+						#found loop
+						#exit while
+`````			end
+					if(loopEdges.contains(nextEdge))
+						#already visited so dead end
+					end
+					loopEdges.push(nextEdge)
+					nextEdge=bestEdgeFromNode(planeDir,nextEdge.end)
+				end
+				#if here no found loop
+					
+				puts("->"+nextNode)  
+			end
+		end
+	}
+end
+
+FindConnected
+
+# Float#radians method converts from radians to degrees.
+# Use radians internally as it is what the math functions uses,
+# but convert at display layer.
+edge_angle(Sketchup.active_model.selection.first).radians
+
+firstedge
+
+curEdge
+
+ChooseBest(plane, edges)
+{
+	best=nul
+	curMin=180
+	foreach edges
+		if plane matches
+			if calc angle < curMinAngle
+				best=edge
+				curMin=angle
+	return best
+}
+
+
+//find all coedges
+actualLoops=[]
+while nextColine
+	nextColine=null
+	foreach connected edge
+
+		if coliniear 
+			nextColine= edge
+		else
+			calc plane 
+			if plane ! already done
+				find single(?) loop in plane if any
+				while(!end of chain & not out of plane)
+					potential loop edges.push(edge)
+					if(nextEdge=firstEdge)
+						actualLoops.push potentalLoop
+					nextInChain = min angle
+
+foreach codege
+	get nonCodeges connected to edge
+		potentalLoopStarts.push nonCodege
+		
+sort potentalLoops by plane
+
+while coline 
+	
+
+foreach edge
+	if nextEdge ! colinear
+		get plane 
+	
+
+	get normal from edge1 and edge2
+	

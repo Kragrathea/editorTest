@@ -51,6 +51,188 @@ function xInferAxesHelper( size ) {
 
 }
 
+
+function toColorArray( colors ) {
+
+	const array = [];
+
+	for ( let i = 0, l = colors.length; i < l; i += 3 ) {
+
+		array.push( new THREE.Color( colors[ i ], colors[ i + 1 ], colors[ i + 2 ] ) );
+
+	}
+
+	return array;
+
+}
+
+/**
+		 * Vertically paints the faces interpolating between the
+		 * specified colors at the specified angels. This is used for the Background
+		 * node, but could be applied to other nodes with multiple faces as well.
+		 *
+		 * When used with the Background node, default is directionIsDown is true if
+		 * interpolating the skyColor down from the Zenith. When interpolationg up from
+		 * the Nadir i.e. interpolating the groundColor, the directionIsDown is false.
+		 *
+		 * The first angle is never specified, it is the Zenith (0 rad). Angles are specified
+		 * in radians. The geometry is thought a sphere, but could be anything. The color interpolation
+		 * is linear along the Y axis in any case.
+		 *
+		 * You must specify one more color than you have angles at the beginning of the colors array.
+		 * This is the color of the Zenith (the top of the shape).
+		 *
+		 * @param {BufferGeometry} geometry
+		 * @param {number} radius
+		 * @param {array} angles
+		 * @param {array} colors
+		 * @param {boolean} topDown - Whether to work top down or bottom up.
+		 */
+ function paintFaces( geometry, radius, angles, colors, topDown ) {
+	// compute threshold values
+	const thresholds = [];
+	const startAngle = ( topDown === true ) ? 0 : Math.PI;
+	for ( let i = 0, l = colors.length; i < l; i ++ ) {
+
+		let angle = ( i === 0 ) ? 0 : angles[ i - 1 ];
+		angle = ( topDown === true ) ? angle : ( startAngle - angle );
+
+		const point = new THREE.Vector3();
+		point.setFromSphericalCoords( radius, angle, 0 );
+
+		thresholds.push( point );
+
+	}
+
+	// generate vertex colors
+
+	const indices = geometry.index;
+	const positionAttribute = geometry.attributes.position;
+	const colorAttribute = new THREE.BufferAttribute( new Float32Array( geometry.attributes.position.count * 3 ), 3 );
+
+	const position = new THREE.Vector3();
+	const color = new THREE.Color();
+
+	for ( let i = 0; i < indices.count; i ++ ) {
+
+		const index = indices.getX( i );
+		position.fromBufferAttribute( positionAttribute, index );
+
+		let thresholdIndexA, thresholdIndexB;
+		let t = 1;
+
+		for ( let j = 1; j < thresholds.length; j ++ ) {
+
+			thresholdIndexA = j - 1;
+			thresholdIndexB = j;
+
+			const thresholdA = thresholds[ thresholdIndexA ];
+			const thresholdB = thresholds[ thresholdIndexB ];
+
+			if ( topDown === true ) {
+
+				// interpolation for sky color
+
+				if ( position.y <= thresholdA.y && position.y > thresholdB.y ) {
+
+					t = Math.abs( thresholdA.y - position.y ) / Math.abs( thresholdA.y - thresholdB.y );
+
+					break;
+
+				}
+
+			} else {
+
+				// interpolation for ground color
+
+				if ( position.y >= thresholdA.y && position.y < thresholdB.y ) {
+
+					t = Math.abs( thresholdA.y - position.y ) / Math.abs( thresholdA.y - thresholdB.y );
+
+					break;
+
+				}
+
+			}
+
+		}
+
+		const colorA = colors[ thresholdIndexA ];
+		const colorB = colors[ thresholdIndexB ];
+
+		color.copy( colorA ).lerp( colorB, t );
+
+		colorAttribute.setXYZ( index, color.r, color.g, color.b );
+
+	}
+	geometry.setAttribute( 'color', colorAttribute );
+}
+
+function buildBackground() {
+	const group = new THREE.Group();
+
+	let groundAngle=[
+		1.5, 1.6
+	]
+	let groundColor=[
+		0.2, 0.6, 0.3, 0.4, 0.4, 0.35, 0.3, 0.5, 0.6
+	]
+	let skyAngle=[
+		1.5
+	]
+	let skyColor=[
+		0.5, 0.7, 1, 0.7, 1, 0.9,
+	]
+
+	const radius = 900;
+	if ( skyColor ) {
+
+		const skyGeometry = new THREE.SphereGeometry( radius, 32, 16 );
+		const skyMaterial = new THREE.MeshBasicMaterial( { fog: false, side: THREE.BackSide, depthWrite: false, depthTest: false } );
+
+		if ( skyColor.length > 3 ) {
+
+			paintFaces( skyGeometry, radius, skyAngle, toColorArray( skyColor ), true );
+			skyMaterial.vertexColors = true;
+
+		} else {
+
+			skyMaterial.color.setRGB( skyColor[ 0 ], skyColor[ 1 ], skyColor[ 2 ] );
+
+		}
+
+		const sky = new THREE.Mesh( skyGeometry, skyMaterial );
+		group.add( sky );
+
+	}
+
+	// ground
+
+	if ( groundColor ) {
+
+		if ( groundColor.length > 0 ) {
+
+			const groundGeometry = new THREE.SphereGeometry( radius, 32, 16, 0, 2 * Math.PI, 0.5 * Math.PI, 1.5 * Math.PI );
+			const groundMaterial = new THREE.MeshBasicMaterial( { fog: false, side: THREE.BackSide, vertexColors: true, depthWrite: false, depthTest: false } );
+
+			paintFaces( groundGeometry, radius, groundAngle, toColorArray( groundColor ), false );
+
+			const ground = new THREE.Mesh( groundGeometry, groundMaterial );
+			group.add( ground );
+
+		}
+
+	}
+
+	// render background group first
+
+	group.renderOrder = - Infinity;
+
+	return group;
+
+}
+
+
 // InferAxesHelper.prototype = Object.create( THREE.LineSegments.prototype );
 // InferAxesHelper.prototype.constructor = InferAxesHelper;
 
@@ -67,9 +249,9 @@ class InferAxesHelper extends THREE.LineSegments {
 		];
 	
 		var colors = [
-			1, 0, 0,	1, 0.6, 0,
-			0, 1, 0,	0.6, 1, 0,
-			0, 0, 1,	0, 0.6, 1
+			1, 0.6, 0,	1, 0.6, 0,
+			0.6, 1, 0,	0.6, 1, 0,
+			0, 0.6, 1,	0, 0.6, 1
 		];
 	
 		var geometry = new THREE.BufferGeometry();
@@ -147,6 +329,8 @@ function Viewport( editor ) {
 
 	// helpers
 
+
+
 	const grid = new THREE.Group();
 	sceneHelpers.add( grid );
 
@@ -159,6 +343,20 @@ function Viewport( editor ) {
 	grid2.material.color.setHex( 0x222222 );
 	grid2.material.vertexColors = false;
 	grid.add( grid2 );
+	grid.receiveShadow = true;
+	grid1.receiveShadow = true;
+	grid2.receiveShadow = true;
+
+
+	grid.visible=true;
+
+	var sceneAxis = new THREE.AxesHelper( 100 )
+	sceneAxis.visible=true;
+	sceneHelpers.add( sceneAxis );
+	sceneAxis = new THREE.AxesHelper( -100 )
+	sceneAxis.visible=true;
+	sceneHelpers.add( sceneAxis );
+
 
 	const viewHelper = new ViewHelper( camera, container );
 	const vr = new VR( editor );
@@ -194,6 +392,9 @@ function Viewport( editor ) {
 	lineHelper.visible=false;
 	sceneHelpers.add( lineHelper );
 
+	const sky=buildBackground();
+	//sceneHelpers.add( sky);
+	
 	///////////////////////////////////////////
 
 	//
@@ -1111,7 +1312,11 @@ function Viewport( editor ) {
 		startTime = performance.now();
 
 		renderer.setViewport( 0, 0, container.dom.offsetWidth, container.dom.offsetHeight );
+
+		renderer.render( sky, editor.viewportCamera );
+		renderer.autoClear = false;
 		renderer.render( scene, editor.viewportCamera );
+		renderer.autoClear = true;
 
 		if ( camera === editor.viewportCamera ) {
 
