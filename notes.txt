@@ -1,7 +1,9 @@
 # Counter-clockwise angle from vector2 to vector1, as seen from normal.
-def angle_in_plane(vector1, vector2, normal = Z_AXIS)
+def angleBetween(vector1, vector2, normal = Z_AXIS)
   Math.atan2((vector2 * vector1) % normal, vector1 % vector2)
 end
+
+def
 
 def edge_angle(edge)
   angle = angle_in_plane(edge.faces[0].normal, edge.faces[1].normal, edge.line[1])
@@ -58,36 +60,115 @@ firstedge
 
 curEdge
 
-ChooseBest(plane, edges)
+# Counter-clockwise angle from vector2 to vector1, as seen from normal.
+def angleBetween(vector1, vector2, normal = Z_AXIS)
+  Math.atan2((vector2 * vector1) % normal, vector1 % vector2)
+end
+
+def findBest(plane,firstEdge)
+	minAngle=999;
+	bestEdge=nil;
+	firstVect=firstEdge.end.position-firstEdge.start.position
+
+	firstEdge.end.edges.each{|e|
+		if(e==firstEdge)
+			next
+		end
+
+		if(firstEdge.end==e.start)
+			puts("GoodDir")
+			eVect=e.end.position-e.start.position
+		end 
+		if(firstEdge.end==e.end)
+			puts("FlippedDir")
+			eVect=e.start.position-e.end.position
+		end 
+
+
+		
+		dist = e.end.position.distance_to_plane(plane);
+		#puts dist
+		#normal=(firstVect*eVect).normalize
+		#puts("normal:"+normal.to_s)
+		if(dist>0.1)
+			puts("Wrong plane:"+dist.to_s)
+			#puts("Wrong plane:"+planeDir.to_s)
+			next
+		end
+		angle=angleBetween(firstVect,eVect,plane[1])
+		if(angle<minAngle)
+			minAngle=angle
+			bestEdge=e;
+		end
+	}
+	if(bestEdge!=nil)	
+		Sketchup.active_model.selection.add(bestEdge)
+	end
+	#puts (["Best",bestEdge,minAngle.radians])
+	return(bestEdge)
+end
+def selLoop(firstEdge)
+	Sketchup.active_model.selection.clear()
+	firstPlane=[Geom::Point3d.new(0,0,0),Geom::Vector3d.new(0,0,-1)]
+	loopEdges=[]
+	best=findBest(firstPlane,firstEdge)
+	while(best!=nil)
+		if(best==firstEdge)
+			puts "Good Loop Detected"
+			break
+		end
+		if(loopEdges.include?(best))
+			puts("Inner Loop Detected")
+			break
+		end
+		loopEdges.push(best);
+		best=findBest(firstPlane,best)
+	end
+	if(best==nil)
+		puts("Dead Ended")
+	end
+end
+
+ChooseBest(plane, firstEdge, edges)
 {
 	best=nul
-	curMin=180
-	foreach edges
-		if plane matches
+	curMinAngle=180
+	foreach edge in edges
+		if edge.coplaner
+			let angle=angleBetween(plane,firstEdge, edge)
 			if calc angle < curMinAngle
 				best=edge
-				curMin=angle
+				curMinAngle=angle
 	return best
 }
 
 
 //find all coedges
-actualLoops=[]
-while nextColine
-	nextColine=null
-	foreach connected edge
+findLoops(firstEdge)
+{
 
-		if coliniear 
-			nextColine= edge
-		else
-			calc plane 
-			if plane ! already done
-				find single(?) loop in plane if any
-				while(!end of chain & not out of plane)
-					potential loop edges.push(edge)
-					if(nextEdge=firstEdge)
-						actualLoops.push potentalLoop
-					nextInChain = min angle
+foundLoopsLoops=[]
+foundLoopsPlaneDir=[]
+done=false;
+while(!done)
+	foreach edge in end.edges
+		if !coliniear(firstEdge,edge) 
+			planeDir=cross(firstEdge,edge).normalize 
+			if !foundLoops.contains(planeDir) // already done
+				//find single(?) loop in plane if any
+				foundLoops.push(planeDir)
+				curLoop=[edge]//start with current edge
+				curNode=edge.end;
+				nextEdge=pickBestEdge(planeDir,curNode)
+				while(nextEdge){
+					if(nextEdge==firstEdge){
+						foundLoopsLoops(curLoop)
+						break;//out of while
+					}
+					curLoop.push(edge)
+					nextEdge=pickBestEdge(planeDir,edge.end)
+				}
+}
 
 foreach codege
 	get nonCodeges connected to edge
