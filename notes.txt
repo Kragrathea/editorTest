@@ -65,28 +65,31 @@ def angleBetween(vector1, vector2, normal = Z_AXIS)
   Math.atan2((vector2 * vector1) % normal, vector1 % vector2)
 end
 
-def findBest(plane,firstEdge)
+def findBest(plane,firstEdge,startNode)
 	minAngle=999;
 	bestEdge=nil;
-	firstVect=firstEdge.end.position-firstEdge.start.position
+	prevNode=firstEdge.other_vertex(startNode)
+	firstVect=prevNode.position-startNode.position
 
-	firstEdge.end.edges.each{|e|
+	startNode.edges.each{|e|
 		if(e==firstEdge)
 			next
 		end
+		other=e.other_vertex(startNode)
+		eVect=other.position-startNode.position
 
 		if(firstEdge.end==e.start)
 			puts("GoodDir")
-			eVect=e.end.position-e.start.position
+			eVect=other.position-startNode.position
 		end 
 		if(firstEdge.end==e.end)
 			puts("FlippedDir")
-			eVect=e.start.position-e.end.position
+			eVect=startNode.position-other.position
 		end 
 
 
 		
-		dist = e.end.position.distance_to_plane(plane);
+		dist = other.position.distance_to_plane(plane);
 		#puts dist
 		#normal=(firstVect*eVect).normalize
 		#puts("normal:"+normal.to_s)
@@ -104,14 +107,15 @@ def findBest(plane,firstEdge)
 	if(bestEdge!=nil)	
 		Sketchup.active_model.selection.add(bestEdge)
 	end
-	#puts (["Best",bestEdge,minAngle.radians])
+	puts (["Best",bestEdge,minAngle.radians])
 	return(bestEdge)
 end
 def selLoop(firstEdge)
 	Sketchup.active_model.selection.clear()
 	firstPlane=[Geom::Point3d.new(0,0,0),Geom::Vector3d.new(0,0,-1)]
 	loopEdges=[]
-	best=findBest(firstPlane,firstEdge)
+	curNode=firstEdge.end
+	best=findBest(firstPlane,firstEdge,curNode)
 	while(best!=nil)
 		if(best==firstEdge)
 			puts "Good Loop Detected"
@@ -122,7 +126,10 @@ def selLoop(firstEdge)
 			break
 		end
 		loopEdges.push(best);
-		best=findBest(firstPlane,best)
+		#figure out endNode
+		curNode=best.other_vertex(curNode)
+		best=findBest(firstPlane,best,curNode)
+		#//curNode=nextNode;
 	end
 	if(best==nil)
 		puts("Dead Ended")
