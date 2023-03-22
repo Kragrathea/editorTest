@@ -21,6 +21,11 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 import { AddObjectCommand } from './commands/AddObjectCommand.js';
 
+import { Line2 } from '/examples/jsm/lines/Line2.js';
+import { LineMaterial } from '/examples/jsm/lines/LineMaterial.js';
+import { LineGeometry } from '/examples/jsm/lines/LineGeometry.js';
+
+
 
 function xInferAxesHelper( size ) {
 
@@ -287,6 +292,7 @@ function Viewport( editor ) {
 	this.signals=editor.signals;
 
 	const container = new UIPanel();
+	this.container=container;
 	container.setId( 'viewport' );
 	container.setPosition( 'absolute' );
 
@@ -379,7 +385,23 @@ function Viewport( editor ) {
 	//geometry.computeLineDistances();
 
 	var lineHelperMaterial = new THREE.LineBasicMaterial( { color: 0xff0000, linewidth: 2 } );
-	const edgeMaterial = new THREE.LineBasicMaterial( { color: 0xff00ff, toneMapped:false, linewidth: 2 } );
+	//const edgeMaterial = new THREE.LineBasicMaterial( { color: 0xff00ff, toneMapped:false, linewidth: 2 } );
+	const edgeMaterial = new LineMaterial( {
+
+		color: 0xffffff,
+		//linewidth: 5, // in pixels
+		vertexColors: true,
+		//resolution:  // to be set by renderer, eventually
+		dashed: false,
+		alphaToCoverage: true,
+		onBeforeCompile: shader => {
+		  shader.vertexShader = `
+			${shader.vertexShader}
+		  `.replace(`uniform float linewidth;`, `attribute float linewidth;`);
+		  //console.log(shader.vertexShader)
+		}
+	  
+	  } );
 	
 	var dashedLineMaterial = new THREE.LineDashedMaterial( {
 		color: 0xffffff,
@@ -583,7 +605,15 @@ function Viewport( editor ) {
 	
 						console.log("edge:"+JSON.stringify(edgeVerts))
 
-						const edgeGeometry = new THREE.BufferGeometry().setFromPoints( edgeVerts );
+						//const edgeGeometry = new THREE.BufferGeometry().setFromPoints( edgeVerts );
+						const edgeGeometry = new LineGeometry();
+						edgeGeometry.setPositions( edgeVerts );
+						clr=[]
+						clr.push(Math.random(), Math.random(), Math.random());
+						clr.push(Math.random(), Math.random(), Math.random());
+						edgeGeometry.setColors( clr );
+						edgeGeometry.setAttribute("linewidth", new THREE.InstancedBufferAttribute(new Float32Array(wdth), 1));
+
 						//edgeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(edgeVerts, 3));
 						edgeGeometry.needsUpdate=true;
 
@@ -612,7 +642,12 @@ function Viewport( editor ) {
 	
 						
 						
-						var edge = new THREE.Line( edgeGeometry,  edgeMaterial );
+						//var edge = new THREE.Line( edgeGeometry,  edgeMaterial );
+
+						var edge = new Line2( edgeGeometry,  edgeMaterial );
+						edge.computeLineDistances();
+						edge.scale.set( 1, 1, 1 );
+
 						edge.name="Edge";
 	//					lineToolFirstPoint=null;
 	//					lineHelper.visible=false;
@@ -659,6 +694,10 @@ function Viewport( editor ) {
 			editor.activeTool.onMouseMove(event,onDoubleClickPosition,view)
 		}
 
+		//viewportInfo.setInferText(viewCursorInferString);
+		//render()
+		//return;
+
 		var objects = scene.children;
 		var intersects = getIntersects( onDoubleClickPosition, objects );
 		//console.log("scene:children:"+[scene,objects])
@@ -698,13 +737,13 @@ function Viewport( editor ) {
 					if(screenDist<curDist)//closer previous edges.
 					{
 						curDist=screenDist;
-						var v0=new THREE.Vector3(intersect.object.geometry.attributes.position.array[0],
-							intersect.object.geometry.attributes.position.array[1],
-							intersect.object.geometry.attributes.position.array[2]);
+						var v0=new THREE.Vector3(intersect.object.geometry.attributes.instanceStart.array[0],
+							intersect.object.geometry.attributes.instanceStart.array[1],
+							intersect.object.geometry.attributes.instanceStart.array[2]);
 						//console.log("v0:"+JSON.stringify(v0))
-						var v1=new THREE.Vector3(intersect.object.geometry.attributes.position.array[3],
-							intersect.object.geometry.attributes.position.array[4],
-							intersect.object.geometry.attributes.position.array[5]);
+						var v1=new THREE.Vector3(intersect.object.geometry.attributes.instanceStart.array[3],
+							intersect.object.geometry.attributes.instanceStart.array[4],
+							intersect.object.geometry.attributes.instanceStart.array[5]);
 						//console.log("v0 dist:"+curPos.distanceTo( v0.clone().project(camera)))
 						if( curPos.distanceTo( v0.clone().project(camera))<pointThreshold){
 							viewCursorInferString="On Endpoint";			

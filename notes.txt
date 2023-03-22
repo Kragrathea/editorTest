@@ -1,9 +1,3 @@
-# Counter-clockwise angle from vector2 to vector1, as seen from normal.
-def angleBetween(vector1, vector2, normal = Z_AXIS)
-  Math.atan2((vector2 * vector1) % normal, vector1 % vector2)
-end
-
-def
 
 def edge_angle(edge)
   angle = angle_in_plane(edge.faces[0].normal, edge.faces[1].normal, edge.line[1])

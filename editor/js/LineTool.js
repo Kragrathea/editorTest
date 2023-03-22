@@ -1,4 +1,9 @@
+import * as THREE from 'three';
 import { AddObjectCommand } from './commands/AddObjectCommand.js';
+import { Line2 } from '/examples/jsm/lines/Line2.js';
+import { LineMaterial } from '/examples/jsm/lines/LineMaterial.js';
+import { LineGeometry } from '/examples/jsm/lines/LineGeometry.js';
+
 
 class ToolManager{
 
@@ -228,19 +233,24 @@ class Vertex extends Entity{
 	//position=new THREE.Vector3;
 	constructor(position) {
 		//use weakset?
-		this.connections=new Set()//Entity ids
 		super()//important
-		this.position=new THREE.Vector3;
+		this.connections=new Set()//Entity ids
+		this.position=position;
 	}
 	connect(otherEntity)
 	{
 		//todo should only be edge?
-		this.connections.add(this.id)[otherEntity.id]=otherEntity;//todo is otherEntity the right thing? 
+		this.connections.add(otherEntity);
 	}
+	disconnect(otherEntity)
+	{
+		//todo should only be edge?
+		this.connections.delete(otherEntity); 
+	}	
 	copy(){	}
 	
 }
-class Entities{
+class Entities{ 
 	addEdge(edge){
 		//from array of points
 
@@ -264,11 +274,13 @@ class Entities{
 		//_entities.push(newEdges)
 	}
 }
-class Edge{
+class Edge extends Entity{
 	//vertices=[ new THREE.Vertex(), new THREE.Vertex()];
 	constructor(vertex1,vertex2) {
-		this.vertices=[vertex1,vertex2]
-		
+		super()
+		//this.vertices=[vertex1,vertex2]
+		this.start=vertex1
+		this.end=vertex2
 		//connect the verts to this edge.
 		vertex1.connect(this)
 		vertex2.connect(this)
@@ -279,21 +291,29 @@ class Edge{
 		//walk verts to get edges
 	}
 
+	otherVertex(vertex)
+	{
+		if(vertex==this.start)
+			return this.end
+		if(vertex==this.end)
+			return this.start
+		return null;//not found
+	}
 
 	split(splitPoint)
 	{
 		//make sure point is on line
-		////newEdge.copy(this)
-		//newVert = new Vertex(splitPoint)
-		//newEdge= new Edge(this.v1, newVert)
-		//this.v2.disconnect(this)//remove this edge from v2 connections
-		//this.v2=newVert//new vert should already be connected right?
-		//return newEdge
+		//newEdge.copy(this)
+		let newVert = new Vertex(splitPoint)
+		let newEdge= new Edge(newVert,this.end)
+		this.end.disconnect(this)//remove this edge from v2 connections
+
+		this.end=newVert//new vert should already be connected right?
+		newVert.connect(this);
+
+		return newEdge
 	}
-	splitDist(dist)
-	{
-		
-	}
+	splitDist(dist){}
 	commonFace(otherEdge)
 	{}
 	curve(){}
@@ -311,6 +331,8 @@ class Edge{
 	//soft()	
 
 }
+
+window.testEdge = new Edge(new Vertex(new THREE.Vector3(0,1,0)),new Vertex(new THREE.Vector3(0,1,0)))
 
 class InputPoint{
 	constructor(  ) {
@@ -357,6 +379,8 @@ class InputPoint{
 		} );
 		this.mouse.set( ( this.inPos.x * 2 ) - 1, - ( this.inPos.y * 2 ) + 1 );
 		this.raycaster.setFromCamera( this.mouse, view.camera );
+		//this.raycaster.params.Line2 = { threshold: 50 };
+
 		var intersects =this.raycaster.intersectObjects( objects, false );
 
 		this.intersectingObjects=intersects;
@@ -397,14 +421,14 @@ class InputPoint{
 					if(screenDist<curDist)//closer previous edges.
 					{
 						curDist=screenDist;
-						var v0=new THREE.Vector3(intersect.object.geometry.attributes.position.array[0],
-							intersect.object.geometry.attributes.position.array[1],
-							intersect.object.geometry.attributes.position.array[2]);
-						//console.log("v0:"+JSON.stringify(v0))
-						var v1=new THREE.Vector3(intersect.object.geometry.attributes.position.array[3],
-							intersect.object.geometry.attributes.position.array[4],
-							intersect.object.geometry.attributes.position.array[5]);
-						//console.log("v0 dist:"+curPos.distanceTo( v0.clone().project(camera)))
+						var v0=new THREE.Vector3(intersect.object.geometry.attributes.instanceStart.array[0],
+							intersect.object.geometry.attributes.instanceStart.array[1],
+							intersect.object.geometry.attributes.instanceStart.array[2]);
+						console.log("v0:"+JSON.stringify(v0))
+						var v1=new THREE.Vector3(intersect.object.geometry.attributes.instanceStart.array[3],
+							intersect.object.geometry.attributes.instanceStart.array[4],
+							intersect.object.geometry.attributes.instanceStart.array[5]);
+						console.log("v0 dist:"+curPos.distanceTo( v0.clone().project(view.camera)))
 						if( curPos.distanceTo( v0.clone().project(view.camera))<pointThreshold){
 							this.viewCursorInferString="On Endpoint";			
 							this.viewCursor.position.copy(v0);
@@ -532,23 +556,59 @@ class LineTool extends Tool {
 				//make edge
 				console.log("MakeEdge:"+[this.firstIp.viewCursor.position,this.mouseIp.viewCursor.position])
 				const edgeVerts= []
+				// edgeVerts.push(
+				// 	this.firstIp.viewCursor.position.clone(),
+				// 	this.mouseIp.viewCursor.position.clone(),
+				// );
 				edgeVerts.push(
-					this.firstIp.viewCursor.position.clone(),
-					this.mouseIp.viewCursor.position.clone(),
+					this.firstIp.viewCursor.position.x,this.firstIp.viewCursor.position.y,this.firstIp.viewCursor.position.z,
+					this.mouseIp.viewCursor.position.x,this.mouseIp.viewCursor.position.y,this.mouseIp.viewCursor.position.z
 				);
 
 				console.log("edge:"+JSON.stringify(edgeVerts))
 
 				//move to Entites.addEdge
-				const edgeGeometry = new THREE.BufferGeometry().setFromPoints( edgeVerts );
+				//const edgeGeometry = new THREE.BufferGeometry().setFromPoints( edgeVerts );
 				//edgeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(edgeVerts, 3));
+				const edgeGeometry = new LineGeometry();
+				edgeGeometry.setPositions( edgeVerts );
+				let clr=[0,0,0,0,0,0]
+				edgeGeometry.setColors( clr );
+				edgeGeometry.setAttribute("linewidth", new THREE.InstancedBufferAttribute(new Float32Array(1), 1));
+
 				edgeGeometry.needsUpdate=true;
 				
-				const edgeMaterial = new THREE.LineBasicMaterial( { color: 0x000000, linewidth: 2 } );//todo. Dont make new mat for every edge
 
-				var edge = new THREE.Line( edgeGeometry,  edgeMaterial );
+				const edgeMaterial = new LineMaterial( {
+
+					//color: 0xffffff,
+					linewidth: 1, // in pixels
+					vertexColors: true,
+					//resolution:  // to be set by renderer, eventually
+					//dashed: false,
+					//alphaToCoverage: true,
+					// onBeforeCompile: shader => {
+					//   shader.vertexShader = `
+					// 	${shader.vertexShader}
+					//   `.replace(`uniform float linewidth;`, `attribute float linewidth;`);
+					//   //console.log(shader.vertexShader)
+					// }
+				  
+				  } );
+				  
+				  edgeMaterial.resolution.set(view.container.dom.offsetWidth, view.container.dom.offsetHeight);
+				//const edgeMaterial = new THREE.LineBasicMaterial( { color: 0x000000, linewidth: 2 } );//todo. Dont make new mat for every edge
+
+				//var edge = new THREE.Line( edgeGeometry,  edgeMaterial );
+				//edge.name="Edge";
+				//edge.renderOrder = 1;
+
+				var edge = new Line2( edgeGeometry,  edgeMaterial );
+				edge.computeLineDistances();
+				edge.scale.set( 1, 1, 1 );
+
 				edge.name="Edge";
-				edge.renderOrder = 1;
+
 
 				view.editor.execute( new AddObjectCommand(view.editor, edge ) );
 				this.firstIp.copy(this.mouseIp);				
@@ -556,22 +616,22 @@ class LineTool extends Tool {
 				var iraycaster = new THREE.Raycaster();
 				iraycaster.linePrecision = 0.00001;
 
-				//get ray dist to other edges.
-				iraycaster.set( this.firstIp.viewCursor.position.clone(), this.mouseIp.viewCursor.position.clone().sub(this.firstIp.viewCursor.position).normalize() );
-				//console.log( iraycaster.intersectObjects( objects ));
-				var objects = view.scene.children;
-				var segIntersects = iraycaster.intersectObjects( objects );
-				if ( segIntersects.length > 0 ) {
-					for (var i = 0, len = segIntersects.length; i < len; i++) {
-						var intersect = segIntersects[ i ];
-						var inferedPoint = intersect.point; //on line
-						console.log(inferedPoint);
-						var irayPoint=iraycaster.ray.at(intersect.distance,new THREE.Vector3(0, 0, - 1));
-						console.log(irayPoint);
-						var dist= inferedPoint.distanceTo(irayPoint);	
-						console.log(dist);
-					}
-				}
+				// //get ray dist to other edges.
+				// iraycaster.set( this.firstIp.viewCursor.position.clone(), this.mouseIp.viewCursor.position.clone().sub(this.firstIp.viewCursor.position).normalize() );
+				// //console.log( iraycaster.intersectObjects( objects ));
+				// var objects = view.scene.children;
+				// var segIntersects = iraycaster.intersectObjects( objects );
+				// if ( segIntersects.length > 0 ) {
+				// 	for (var i = 0, len = segIntersects.length; i < len; i++) {
+				// 		var intersect = segIntersects[ i ];
+				// 		var inferedPoint = intersect.point; //on line
+				// 		console.log(inferedPoint);
+				// 		var irayPoint=iraycaster.ray.at(intersect.distance,new THREE.Vector3(0, 0, - 1));
+				// 		console.log(irayPoint);
+				// 		var dist= inferedPoint.distanceTo(irayPoint);	
+				// 		console.log(dist);
+				// 	}
+				// }
 
 				//this.firstIp.clear();
 			}
