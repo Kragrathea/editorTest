@@ -265,6 +265,10 @@ class EditorControls extends THREE.EventDispatcher {
 
 		domElement.addEventListener( 'pointerdown', onPointerDown );
 
+		
+
+		
+
 		// touch
 
 		var touches = [ new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3() ];

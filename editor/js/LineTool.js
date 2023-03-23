@@ -250,8 +250,53 @@ class Vertex extends Entity{
 	copy(){	}
 	
 }
+class Selection{
+	constructor(view)
+	{
+		//VIEW may not be fully ready at this point.
+
+		this.selected=new Set();
+	}
+	add(ent)
+	{
+		this.selected.add(ent)
+		if(ent.doSelect)
+			ent.doSelect();
+	}
+	remove(ent)
+	{
+		this.selected.delete(ent)
+		if(ent.doUnselect)
+			ent.doUnselect()
+	}	
+	toggle(ent)
+	{
+		if(this.selected.has(ent))
+			this.remove(ent)
+		else
+			this.add(ent)
+	}
+	clear()
+	{
+		this.selected.forEach((ent)=>{
+			ent.doUnselect();
+		})
+		this.selected.clear();
+	}
+}
 class Entities{ 
+	constructor(view)
+	{
+		//VIEW may not be fully ready at this point.
+
+		this.edges={};
+	}
+	findEdge(id)
+	{
+		return(this.edges[id]);
+	}
 	addEdge(edge){
+		this.edges[edge.id]=edge;
 		//from array of points
 
 		//clip lines against existing
@@ -274,6 +319,39 @@ class Entities{
 		//_entities.push(newEdges)
 	}
 }
+const edgeMaterial = new LineMaterial( {
+
+	color: 0x000000,
+	linewidth: 2, // in pixels
+	vertexColors: false,
+	//resolution:  // to be set by renderer, eventually
+	//dashed: false,
+	//alphaToCoverage: true,
+	// onBeforeCompile: shader => {
+	// 	shader.vertexShader = `
+	// 	${shader.vertexShader}
+	// 	`.replace(`uniform float linewidth;`, `attribute float linewidth;`);
+	// 	//console.log(shader.vertexShader)
+	// }
+
+} );
+const selectedEdgeMaterial = new LineMaterial( {
+
+	color: 0x0000ff,
+	linewidth: 2, // in pixels
+	vertexColors: false,
+	//resolution:  // to be set by renderer, eventually
+	//dashed: false,
+	//alphaToCoverage: true,
+	// onBeforeCompile: shader => {
+	// 	shader.vertexShader = `
+	// 	${shader.vertexShader}
+	// 	`.replace(`uniform float linewidth;`, `attribute float linewidth;`);
+	// 	//console.log(shader.vertexShader)
+	// }
+
+} );
+
 class Edge extends Entity{
 	//vertices=[ new THREE.Vertex(), new THREE.Vertex()];
 	constructor(vertex1,vertex2) {
@@ -285,7 +363,35 @@ class Edge extends Entity{
 		vertex1.connect(this)
 		vertex2.connect(this)
 
+		const edgeVerts= [
+			vertex1.position.x,vertex1.position.y,vertex1.position.z,
+			vertex2.position.x,vertex2.position.y,vertex2.position.z
+		];
+		const edgeGeometry = new LineGeometry();
+		edgeGeometry.setPositions( edgeVerts );
+		let clr=[0,0,128,0,0,128]
+		let lineWidths=[1]
+		edgeGeometry.setColors( clr );
+		edgeGeometry.setAttribute("linewidth", new THREE.InstancedBufferAttribute(new Float32Array(lineWidths), 1));
+
+		edgeGeometry.needsUpdate=true;
+
+		var edge = new Line2( edgeGeometry,  edgeMaterial );
+		edge.computeLineDistances();
+		edge.scale.set( 1, 1, 1 );
+		edge.name="Edge";
+		edge.userData.edgeId=this.id
+		this.renderObject=edge;
+
 	}
+	doSelect()
+	{
+		this.renderObject.material=selectedEdgeMaterial;
+	}
+	doUnselect()
+	{
+		this.renderObject.material=edgeMaterial;
+	}	
 	allConnected()
 	{
 		//walk verts to get edges
@@ -336,9 +442,10 @@ window.testEdge = new Edge(new Vertex(new THREE.Vector3(0,1,0)),new Vertex(new T
 
 class InputPoint{
 	constructor(  ) {
+		this.raycaster = new THREE.Raycaster();//todo. reuse this?
+		this.raycaster.params.Line2={threshold :10};
 	}
 
-	raycaster = new THREE.Raycaster();
 	mouse = new THREE.Vector2();
 	inPos = new THREE.Vector2();
 
@@ -379,7 +486,7 @@ class InputPoint{
 		} );
 		this.mouse.set( ( this.inPos.x * 2 ) - 1, - ( this.inPos.y * 2 ) + 1 );
 		this.raycaster.setFromCamera( this.mouse, view.camera );
-		//this.raycaster.params.Line2 = { threshold: 50 };
+		this.raycaster.params.Line2 = { threshold: 10 };
 
 		var intersects =this.raycaster.intersectObjects( objects, false );
 
@@ -424,11 +531,11 @@ class InputPoint{
 						var v0=new THREE.Vector3(intersect.object.geometry.attributes.instanceStart.array[0],
 							intersect.object.geometry.attributes.instanceStart.array[1],
 							intersect.object.geometry.attributes.instanceStart.array[2]);
-						console.log("v0:"+JSON.stringify(v0))
+						//console.log("v0:"+JSON.stringify(v0))
 						var v1=new THREE.Vector3(intersect.object.geometry.attributes.instanceStart.array[3],
 							intersect.object.geometry.attributes.instanceStart.array[4],
 							intersect.object.geometry.attributes.instanceStart.array[5]);
-						console.log("v0 dist:"+curPos.distanceTo( v0.clone().project(view.camera)))
+						//console.log("v0 dist:"+curPos.distanceTo( v0.clone().project(view.camera)))
 						if( curPos.distanceTo( v0.clone().project(view.camera))<pointThreshold){
 							this.viewCursorInferString="On Endpoint";			
 							this.viewCursor.position.copy(v0);
@@ -439,7 +546,7 @@ class InputPoint{
 							this.viewCursorValid=true;							
 						}else {
 							this.viewCursorInferString="On Edge";
-							this.viewCursor.position.copy( intersect.point );
+							this.viewCursor.position.copy( intersect.pointOnLine );
 							this.viewCursorValid=true;							
 						}						
 					}
@@ -555,62 +662,72 @@ class LineTool extends Tool {
 			{
 				//make edge
 				console.log("MakeEdge:"+[this.firstIp.viewCursor.position,this.mouseIp.viewCursor.position])
-				const edgeVerts= []
+				const edge=new Edge(new Vertex(new THREE.Vector3(this.firstIp.viewCursor.position.x,this.firstIp.viewCursor.position.y,this.firstIp.viewCursor.position.z)),
+									new Vertex(new THREE.Vector3(this.mouseIp.viewCursor.position.x,this.mouseIp.viewCursor.position.y,this.mouseIp.viewCursor.position.z)))
+
+		//TODO: Find a better place for this!
+		edgeMaterial.resolution.set(view.container.dom.offsetWidth, view.container.dom.offsetHeight);		
+		selectedEdgeMaterial.resolution.set(view.container.dom.offsetWidth, view.container.dom.offsetHeight);				
+		//TODO: Find a better place for this!
+
+				// const edgeVerts= []
+				// // edgeVerts.push(
+				// // 	this.firstIp.viewCursor.position.clone(),
+				// // 	this.mouseIp.viewCursor.position.clone(),
+				// // );
 				// edgeVerts.push(
-				// 	this.firstIp.viewCursor.position.clone(),
-				// 	this.mouseIp.viewCursor.position.clone(),
+				// 	this.firstIp.viewCursor.position.x,this.firstIp.viewCursor.position.y,this.firstIp.viewCursor.position.z,
+				// 	this.mouseIp.viewCursor.position.x,this.mouseIp.viewCursor.position.y,this.mouseIp.viewCursor.position.z
 				// );
-				edgeVerts.push(
-					this.firstIp.viewCursor.position.x,this.firstIp.viewCursor.position.y,this.firstIp.viewCursor.position.z,
-					this.mouseIp.viewCursor.position.x,this.mouseIp.viewCursor.position.y,this.mouseIp.viewCursor.position.z
-				);
 
-				console.log("edge:"+JSON.stringify(edgeVerts))
+				// console.log("edge:"+JSON.stringify(edgeVerts))
 
-				//move to Entites.addEdge
-				//const edgeGeometry = new THREE.BufferGeometry().setFromPoints( edgeVerts );
-				//edgeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(edgeVerts, 3));
-				const edgeGeometry = new LineGeometry();
-				edgeGeometry.setPositions( edgeVerts );
-				let clr=[0,0,0,0,0,0]
-				edgeGeometry.setColors( clr );
-				edgeGeometry.setAttribute("linewidth", new THREE.InstancedBufferAttribute(new Float32Array(1), 1));
+				// //move to Entites.addEdge
+				// //const edgeGeometry = new THREE.BufferGeometry().setFromPoints( edgeVerts );
+				// //edgeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(edgeVerts, 3));
+				// const edgeGeometry = new LineGeometry();
+				// edgeGeometry.setPositions( edgeVerts );
+				// let clr=[0,0,128,0,0,128]
+				// let lineWidths=[1]
+				// edgeGeometry.setColors( clr );
+				// edgeGeometry.setAttribute("linewidth", new THREE.InstancedBufferAttribute(new Float32Array(lineWidths), 1));
 
-				edgeGeometry.needsUpdate=true;
+				// edgeGeometry.needsUpdate=true;
 				
 
-				const edgeMaterial = new LineMaterial( {
+				// const edgeMaterial = new LineMaterial( {
 
-					//color: 0xffffff,
-					linewidth: 1, // in pixels
-					vertexColors: true,
-					//resolution:  // to be set by renderer, eventually
-					//dashed: false,
-					//alphaToCoverage: true,
-					// onBeforeCompile: shader => {
-					//   shader.vertexShader = `
-					// 	${shader.vertexShader}
-					//   `.replace(`uniform float linewidth;`, `attribute float linewidth;`);
-					//   //console.log(shader.vertexShader)
-					// }
+				// 	//color: 0xffffff,
+				// 	linewidth: 3, // in pixels
+				// 	vertexColors: true,
+				// 	//resolution:  // to be set by renderer, eventually
+				// 	//dashed: false,
+				// 	//alphaToCoverage: true,
+				// 	onBeforeCompile: shader => {
+				// 	  shader.vertexShader = `
+				// 		${shader.vertexShader}
+				// 	  `.replace(`uniform float linewidth;`, `attribute float linewidth;`);
+				// 	  //console.log(shader.vertexShader)
+				// 	}
 				  
-				  } );
+				//   } );
 				  
-				  edgeMaterial.resolution.set(view.container.dom.offsetWidth, view.container.dom.offsetHeight);
-				//const edgeMaterial = new THREE.LineBasicMaterial( { color: 0x000000, linewidth: 2 } );//todo. Dont make new mat for every edge
+				//   edgeMaterial.resolution.set(view.container.dom.offsetWidth, view.container.dom.offsetHeight);
+				// //const edgeMaterial = new THREE.LineBasicMaterial( { color: 0x000000, linewidth: 2 } );//todo. Dont make new mat for every edge
 
-				//var edge = new THREE.Line( edgeGeometry,  edgeMaterial );
-				//edge.name="Edge";
-				//edge.renderOrder = 1;
+				// //var edge = new THREE.Line( edgeGeometry,  edgeMaterial );
+				// //edge.name="Edge";
+				// //edge.renderOrder = 1;
 
-				var edge = new Line2( edgeGeometry,  edgeMaterial );
-				edge.computeLineDistances();
-				edge.scale.set( 1, 1, 1 );
+				// var edge = new Line2( edgeGeometry,  edgeMaterial );
+				// edge.computeLineDistances();
+				// edge.scale.set( 1, 1, 1 );
 
-				edge.name="Edge";
+				// edge.name="Edge";
 
 
-				view.editor.execute( new AddObjectCommand(view.editor, edge ) );
+				view.entities.addEdge(edge);
+				view.editor.execute( new AddObjectCommand(view.editor, edge.renderObject ) );
 				this.firstIp.copy(this.mouseIp);				
 
 				var iraycaster = new THREE.Raycaster();
@@ -645,9 +762,11 @@ class LineTool extends Tool {
 	}
 	onMouseMove(event,position,view)
 	{
-		console.log("onMouseMove")
+		//console.log("onMouseMove")
 		if(this.firstIp.viewCursorValid){
 			this.mouseIp.pick(view,position.x,position.y)
+			view.viewportInfo.setInferText(this.mouseIp.viewCursorInferString);
+
 			this.lineHelper.geometry.attributes.position.array[0]=this.firstIp.viewCursor.position.x;
 			this.lineHelper.geometry.attributes.position.array[1]=this.firstIp.viewCursor.position.y;
 			this.lineHelper.geometry.attributes.position.array[2]=this.firstIp.viewCursor.position.z;
@@ -677,6 +796,9 @@ class LineTool extends Tool {
 	{
 		if(this.lineHelper)
 			renderer.render( this.lineHelper, camera )
+		if(this.mouseIp && this.mouseIp.viewCursorValid)	
+			renderer.render( this.mouseIp.viewCursor, camera )		
+			
 	}
 
 	//activate
@@ -710,7 +832,9 @@ class MoveTool extends Tool {
 	{}
 	onCancel()
 	{}
-	onMouseMove(){}
+	onMouseMove(event,position,view)
+	{
+	}	
 	onLbutton(){}
 	onSetCursor(){}
 	draw(){}
@@ -734,6 +858,7 @@ class SelectTool extends Tool {
 
 	constructor(  ) {
 		super( );
+		this.mouseIp=new InputPoint()
 	}
 	activate()
 	{
@@ -750,7 +875,21 @@ class SelectTool extends Tool {
 	onMouseUp(event,position,view)
 	{
 		let intersects =  view.getIntersects( position )
-		view.signals.intersectionsDetected.dispatch( intersects );
+		if(intersects.length>0)
+		{
+			if(intersects[0].object.userData.edgeId)
+			{
+				let edge= view.entities.findEdge(intersects[0].object.userData.edgeId)
+				if(event.shiftKey)
+					view.selection.toggle(edge)
+				else{
+					view.selection.clear();
+					view.selection.toggle(edge)
+				}
+			}else{
+				view.signals.intersectionsDetected.dispatch( intersects );
+			}
+		}
 		view.render();
 		//console.log("onMouseUp:"+[event,position,intersects.length])
 	}
@@ -760,7 +899,14 @@ class SelectTool extends Tool {
 	{}
 	onCancel()
 	{}
-	onMouseMove(){}
+	onMouseMove(event,position,view){
+				//console.log("onMouseMove")
+		if(true){
+			this.mouseIp.pick(view,position.x,position.y)
+			view.viewportInfo.setInferText(this.mouseIp.viewCursorInferString);
+		}
+		//console.log("onMouseDown:"+[event,position,view]) 
+	}
 	onLbutton(){}
 	onSetCursor(){}
 	draw(){}
@@ -782,4 +928,4 @@ class SelectTool extends Tool {
 }
 
 
-export { LineTool,MoveTool,SelectTool };
+export { LineTool,MoveTool,SelectTool,Entities,Selection };

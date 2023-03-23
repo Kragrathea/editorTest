@@ -24,6 +24,7 @@ import { AddObjectCommand } from './commands/AddObjectCommand.js';
 import { Line2 } from '/examples/jsm/lines/Line2.js';
 import { LineMaterial } from '/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from '/examples/jsm/lines/LineGeometry.js';
+import { Entities, Selection, SelectTool, LineTool } from './LineTool.js';
 
 
 
@@ -301,6 +302,7 @@ function Viewport( editor ) {
 	//container.add( new ViewportInfo( editor ) );
 
 	var viewportInfo = new ViewportInfo( editor );
+	this.viewportInfo=viewportInfo;
 	container.add( viewportInfo );
 
 	//
@@ -330,6 +332,13 @@ function Viewport( editor ) {
 	
 	const scene = editor.scene;
 	this.scene = scene;
+
+	const entities = new Entities(this)
+	this.entities=entities;
+
+	const selection = new Selection(this)
+	this.selection=selection;
+	
 	const sceneHelpers = editor.sceneHelpers;
 	let showSceneHelpers = true;
 
@@ -519,11 +528,13 @@ function Viewport( editor ) {
 	// object picking
 
 	const raycaster = new THREE.Raycaster();
+	raycaster.params.Line2={threshold :10};
 	const mouse = new THREE.Vector2();
 
 	//////////////////////////////////
-	var myraycaster = new THREE.Raycaster();
-	myraycaster.linePrecision = 0.2;
+	//var myraycaster = new THREE.Raycaster();
+	//myraycaster.linePrecision = 0.2;
+
 	//High precision ray caster
 	var iraycaster = new THREE.Raycaster();
 	iraycaster.linePrecision = 0.00001;
@@ -543,6 +554,7 @@ function Viewport( editor ) {
 		mouse.set( ( point.x * 2 ) - 1, - ( point.y * 2 ) + 1 );
 
 		raycaster.setFromCamera( mouse, camera );
+
 
 		const objects = [];
 
@@ -695,8 +707,8 @@ function Viewport( editor ) {
 		}
 
 		//viewportInfo.setInferText(viewCursorInferString);
-		//render()
-		//return;
+		render()//todo. only when needed?
+		return;
 
 		var objects = scene.children;
 		var intersects = getIntersects( onDoubleClickPosition, objects );
@@ -755,7 +767,7 @@ function Viewport( editor ) {
 							viewCursorValid=true;							
 						}else {
 							viewCursorInferString="On Edge";
-							viewCursor.position.copy( intersect.point );
+							viewCursor.position.copy( intersect.pointOnLine );
 							viewCursorValid=true;							
 						}						
 					}
@@ -884,10 +896,25 @@ function Viewport( editor ) {
 
 	}
 
+
 	container.dom.addEventListener( 'mousedown', onMouseDown );
 	container.dom.addEventListener( 'touchstart', onTouchStart, { passive: false } );
 	container.dom.addEventListener( 'dblclick', onDoubleClick );
 	container.dom.addEventListener( 'mousemove', onMouseMove, false );
+
+	function onKeyDown(event)
+	{
+		console.log("onKeyDown"+event.keyCode)
+		if(event.keyCode==32)
+		{
+			editor.setTool(new SelectTool());
+		}
+		if(event.keyCode==76 || event.keyCode==68) //L or D
+		{
+			editor.setTool(new LineTool());
+		}		
+	}
+	window.addEventListener( 'keydown', onKeyDown, false );
 
 	// controls need to be added *after* main logic,
 	// otherwise controls.enabled doesn't work.
