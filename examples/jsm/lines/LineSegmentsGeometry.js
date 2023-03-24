@@ -224,6 +224,17 @@ class LineSegmentsGeometry extends InstancedBufferGeometry {
 
 	toJSON() {
 
+		const data = {
+			metadata: {
+				version: 4.5,
+				type: 'LineSegmentsGeometry',
+				generator: 'LineSegmentsGeometry.toJSON'
+			}
+		};
+		data.uuid = this.uuid;
+		data.type = this.type;
+		if ( this.name !== '' ) data.name = this.name;
+		return data;
 		// todo
 
 	}

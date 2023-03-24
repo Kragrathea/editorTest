@@ -24,7 +24,7 @@ import { AddObjectCommand } from './commands/AddObjectCommand.js';
 import { Line2 } from '/examples/jsm/lines/Line2.js';
 import { LineMaterial } from '/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from '/examples/jsm/lines/LineGeometry.js';
-import { Entities, Selection, SelectTool, LineTool } from './LineTool.js';
+import { Model, Selection, SelectTool, LineTool } from './LineTool.js';
 
 
 
@@ -333,8 +333,10 @@ function Viewport( editor ) {
 	const scene = editor.scene;
 	this.scene = scene;
 
-	const entities = new Entities(this)
-	this.entities=entities;
+	this.model=editor.model;//todo: remove this and use editor directly.
+
+	//const entities = new Entities(this)
+	//this.entities=entities;
 
 	const selection = new Selection(this)
 	this.selection=selection;
@@ -1039,7 +1041,7 @@ function Viewport( editor ) {
 		selectionBox.visible = false;
 		transformControls.detach();
 
-		if ( object !== null && object !== scene && object !== camera ) {
+		if ( object !== null && object !== scene && object !== camera && !object.isLine2 ) {
 
 			box.setFromObject( object, true );
 

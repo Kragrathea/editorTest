@@ -6,6 +6,7 @@ import { History as _History } from './History.js';
 import { Strings } from './Strings.js';
 import { Storage as _Storage } from './Storage.js';
 import { Selector } from './Viewport.Selector.js';
+import { Model, Selection, SelectTool, LineTool } from './LineTool.js';
 
 THREE.ColorManagement.enabled = true;
 
@@ -132,6 +133,10 @@ function Editor() {
 	this.addCamera( this.camera );
 
 	this.activeTool=null;
+
+	const model=new Model()
+	this.model=model;
+
 	//this.toolManager=new ToolManager(this);
 
 }
