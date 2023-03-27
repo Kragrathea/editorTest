@@ -304,6 +304,7 @@ class Model{
 		this.entities=new Entities();
 	}
 }
+
 class Entities{ 
 	constructor()
 	{
@@ -313,71 +314,84 @@ class Entities{
 	{
 		return(this.edges[id]);
 	}
-	/// <summary>
-/// Calculates the intersection line segment between 2 lines (not segments).
-/// Returns false if no solution can be found.
-/// </summary>
-/// <returns></returns>
-	CalculateLineLineIntersection(line1Point1,line1Point2,line2Point1,line2Point2 )
-	{
-		//out resultSegmentPoint1, out resultSegmentPoint2
-	// Algorithm is ported from the C algorithm of 
-	// Paul Bourke at http://local.wasp.uwa.edu.au/~pbourke/geometry/lineline3d/
-	let resultSegmentPoint1 = new Vector3();
-	let resultSegmentPoint2 = new Vector3();
-	
-	let p1 = line1Point1;
-	let p2 = line1Point2;
-	let p3 = line2Point1;
-	let p4 = line2Point2;
-	let p13 = p1.sub(p3);
-	let p43 = p4.sub(p3);
-	
-	if (p43.lengthSq() < Math.Epsilon) {
-		return [false];
-	}
-	let p21 = p2.sub(p1);
-	if (p21.lengthSq() < Math.Epsilon) {
-		return [false];
-	}
-	
-	let d1343 = p13.x * p43.x + p13.y * p43.y + p13.z * p43.z;
-	let d4321 = p43.x * p21.x + p43.y * p21.y + p43.z * p21.z;
-	let d1321 = p13.x * p21.x + p13.y * p21.y + p13.z * p21.z;
-	let d4343 = p43.x * p43.x + p43.y * p43.y + p43.z * p43.z;
-	let d2121 = p21.x * p21.x + p21.y * p21.y + p21.z * p21.z;
-	
-	let denom = d2121 * d4343 - d4321 * d4321;
-	if (Math.abs(denom) < Math.Epsilon) {
-		return [false];
-	}
-	let numer = d1343 * d4321 - d1321 * d4343;
-	
-	let mua = numer / denom;
-	let mub = (d1343 + d4321 * (mua)) / d4343;
-	
-	resultSegmentPoint1.x = (p1.x + mua * p21.x);
-	resultSegmentPoint1.y = (p1.y + mua * p21.y);
-	resultSegmentPoint1.z = (p1.z + mua * p21.z);
-	resultSegmentPoint2.x = (p3.x + mub * p43.x);
-	resultSegmentPoint2.y = (p3.y + mub * p43.y);
-	resultSegmentPoint2.z = (p3.z + mub * p43.z);
 
-	return [true,resultSegmentPoint1,resultSegmentPoint2];
-	}
 	addEdge(startPos,endPos){
 		
 		//find intersections
+		let allIntersect=[]
+		let ray=new THREE.Ray(startPos.clone(),endPos.clone().sub(startPos).normalize())
 		for (var key in this.edges){
 			let edge =this.edges[key];   
-			let intersect=this.CalculateLineLineIntersection(startPos.clone(),endPos.clone(),edge.start.position.clone(),edge.end.position.clone())
-			console.log(intersect);
-		  }
+			let a=new THREE.Vector3();
+			let b=new THREE.Vector3();
+			
+			let intersect=ray.distanceSqToSegment(edge.start.position.clone(),edge.end.position.clone(),a,b)
+			if(intersect<0.00001)
+			{
+				let rayDist=startPos.distanceTo(a)
+				if(rayDist>startPos.distanceTo(endPos))//past end of new seg?
+					continue;
 
-		let edge = new Edge(new Vertex(startPos),new Vertex(endPos))
+				allIntersect.push([rayDist,edge,a.clone(),b.clone()])
+				if(rayDist<0.00001){
+					console.log("Cross At startPoint:"+[a,b])
+					//newStartVert=edges.start
 
-		this.edges[edge.id]=edge;
-		return edge;
+				}
+				else if(endPos.distanceTo(a)<0.00001){
+					console.log("Cross At endPoint:"+[a,b])
+				}
+				else if(startPos.distanceTo(a)<startPos.distanceTo(endPos)){	
+					console.log("Cross At:"+[a,b])
+				}
+				//console.log("Intersect:"+[intersect,a,b])
+			}
+			//console.log();
+		}
+
+		let newVerts=[]
+		let sorted=allIntersect.sort((a, b) => { return a[0]-b[0] } )
+		
+		let newEdges=[new Vertex(startPos)]
+		//build new verts/edges from intersection points
+		//store newVertex in intersects?
+		//todo check for degenerage cases
+
+		//foreach intersect
+		//intersectEdge.split(intersectNewVertex)//in theory returns new edge/vertex. do we need?
+
+		console.log([sorted.length])
+		console.log([sorted.length==0])
+		if(sorted.length)
+		{
+			console.log( startPos.distanceTo(sorted[0][2]))
+			console.log( startPos.distanceTo(sorted[0][2])<0.00001)
+			console.log(sorted.length==0 || startPos.distanceTo(sorted[0][2])<0.00001 )
+		}
+		if(sorted.length==0 || startPos.distanceTo(sorted[0][2])>0.00001 )
+		{
+			newVerts.push(new Vertex(startPos));
+		}
+		sorted.forEach((intersect)=>{
+			let edge=intersect[1]
+			let newVert=edge.split(intersect[3])
+			newVerts.push(newVert)
+			
+		});
+		newVerts.push(new Vertex(endPos));
+		for(var i=0;i<newVerts.length-1;i++)
+		{
+			let newEdge = new Edge(newVerts[i],newVerts[i+1])
+
+window.editor.model.entities.edges[newEdge.id]=newEdge;
+window.editor.execute( new AddObjectCommand(window.editor, newEdge.renderObject ) );		
+				
+		}
+
+		console.log("newVerts")
+		console.log(newVerts)
+
+		return// edge;
 
 		//from array of points
 
@@ -500,14 +514,45 @@ class Edge extends Entity{
 	{
 		//make sure point is on line
 		//newEdge.copy(this)
+		//console.log("splitDist start:"+splitPoint.distanceTo(this.start.position))
+		if(splitPoint.distanceTo(this.start.position)<0.000001)
+		{
+			console.log("Merge Start")
+			return this.start
+		}
+		if(splitPoint.distanceTo(this.end.position)<0.000001)
+		{
+			console.log("Merge End")
+			return this.end
+		}
 		let newVert = new Vertex(splitPoint)
+		if(this.renderObject && this.renderObject.geometry)
+		{
+			this.renderObject.geometry.attributes.instanceStart.array[3]=newVert.position.x;
+			this.renderObject.geometry.attributes.instanceStart.array[4]=newVert.position.y;
+			this.renderObject.geometry.attributes.instanceStart.array[5]=newVert.position.z;
+			this.renderObject.geometry.needsUpdate=true;
+			this.renderObject.geometry.attributes.instanceStart.needsUpdate;
+			this.renderObject.geometry.attributes.instanceEnd.needsUpdate;
+			setTimeout(() => { 
+				//this.renderObject.geometry.attributes.instanceEnd.setY(0, 0.5); 
+				//this.renderObject.geometry.attributes.instanceStart.setY(1, 0.5); 
+				//geometry.attributes.instanceEnd.setX(0, 0.5); 
+				//geometry.attributes.instanceStart.setX(1, 0.5); 
+				this.renderObject.geometry.attributes.instanceStart.needsUpdate = true 
+				this.renderObject.geometry.attributes.instanceEnd.needsUpdate = true }, 500)
+
+
+		}
 		let newEdge= new Edge(newVert,this.end)
+window.editor.model.entities.edges[newEdge.id]=newEdge;
+window.editor.execute( new AddObjectCommand(window.editor, newEdge.renderObject ) );		
 		this.end.disconnect(this)//remove this edge from v2 connections
 
 		this.end=newVert//new vert should already be connected right?
 		newVert.connect(this);
 
-		return newEdge
+		return newVert
 	}
 	splitDist(dist){}
 	commonFace(otherEdge)
@@ -731,7 +776,12 @@ class LineTool extends Tool {
 	}
 	onMouseUp(event,position,view)
 	{
-		console.log("LineTool.onMouseUp:"+position)
+		console.log("LineTool.onMouseUp:"+event.button)
+
+		if(event.button==1)
+		{
+			return;//do nothing with middle mouse 
+		}
 
 		if(event.button==2)//right button=cancel
 			{
@@ -760,10 +810,11 @@ class LineTool extends Tool {
 		selectedEdgeMaterial.resolution.set(view.container.dom.offsetWidth, view.container.dom.offsetHeight);				
 		//TODO: Find a better place for this!
 
-				let edge=view.editor.model.entities.addEdge(this.firstIp.viewCursor.position.clone(),
+				//let edge=
+				view.editor.model.entities.addEdge(this.firstIp.viewCursor.position.clone(),
 												   this.mouseIp.viewCursor.position.clone());
 
-				view.editor.execute( new AddObjectCommand(view.editor, edge.renderObject ) );
+				//view.editor.execute( new AddObjectCommand(view.editor, edge.renderObject ) );
 				this.firstIp.copy(this.mouseIp);				
 
 				var iraycaster = new THREE.Raycaster();

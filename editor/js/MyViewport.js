@@ -25,6 +25,7 @@ import { Line2 } from '/examples/jsm/lines/Line2.js';
 import { LineMaterial } from '/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from '/examples/jsm/lines/LineGeometry.js';
 import { Model, Selection, SelectTool, LineTool } from './LineTool.js';
+import CameraControls from './camera-controls.module.js';
 
 
 
@@ -921,7 +922,8 @@ function Viewport( editor ) {
 	// controls need to be added *after* main logic,
 	// otherwise controls.enabled doesn't work.
 
-	const controls = new EditorControls( camera, container.dom );
+	//const controls new EditorControls( camera, container.dom );
+	const controls = new CameraControls( camera, container.dom );
 	controls.addEventListener( 'change', function () {
 
 		signals.cameraChanged.dispatch( camera );
@@ -1338,7 +1340,12 @@ function Viewport( editor ) {
 
 		let needsUpdate = false;
 
+
+		//yomotsu camera
+		needsUpdate = controls.update( delta );
+
 		// Animations
+
 
 		const actions = mixer.stats.actions;
 

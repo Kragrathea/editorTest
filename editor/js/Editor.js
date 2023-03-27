@@ -7,6 +7,9 @@ import { Strings } from './Strings.js';
 import { Storage as _Storage } from './Storage.js';
 import { Selector } from './Viewport.Selector.js';
 import { Model, Selection, SelectTool, LineTool } from './LineTool.js';
+import CameraControls from './camera-controls.module.js';
+
+CameraControls.install( { THREE: THREE } );
 
 THREE.ColorManagement.enabled = true;
 
