@@ -924,6 +924,43 @@ function Viewport( editor ) {
 
 	//const controls new EditorControls( camera, container.dom );
 	const controls = new CameraControls( camera, container.dom );
+
+	controls.mouseButtons.middle=CameraControls.ACTION.ROTATE;
+	controls.mouseButtons.left=CameraControls.ACTION.NONE;
+	controls.mouseButtons.right=CameraControls.ACTION.NONE;
+	// switch the behavior by the modifier key press
+	const keyState = {
+		shiftRight  : false,
+		shiftLeft   : false,
+		controlRight: false,
+		controlLeft : false,
+	};
+	const updateConfig = () => {
+		if ( keyState.shiftRight || keyState.shiftLeft ) {
+			controls.mouseButtons.middle = CameraControls.ACTION.TRUCK;
+		} else if ( keyState.controlRight || keyState.controlLeft ) {
+			controls.mouseButtons.middle = CameraControls.ACTION.DOLLY;
+		} else {
+			controls.mouseButtons.middle = CameraControls.ACTION.ROTATE;
+		}
+	}
+	document.addEventListener( 'keydown', ( event ) => {
+		if ( event.code === 'ShiftRight'   ) keyState.shiftRight   = true;
+		if ( event.code === 'ShiftLeft'    ) keyState.shiftLeft    = true;
+		if ( event.code === 'ControlRight' ) keyState.controlRight = true;
+		if ( event.code === 'ControlLeft'  ) keyState.controlLeft  = true;
+		updateConfig();
+	} );
+
+	document.addEventListener( 'keyup', ( event ) => {
+		if ( event.code === 'ShiftRight'   ) keyState.shiftRight   = false;
+		if ( event.code === 'ShiftLeft'    ) keyState.shiftLeft    = false;
+		if ( event.code === 'ControlRight' ) keyState.controlRight = false;
+		if ( event.code === 'ControlLeft'  ) keyState.controlLeft  = false;
+		updateConfig();
+	} );
+
+
 	controls.addEventListener( 'change', function () {
 
 		signals.cameraChanged.dispatch( camera );
@@ -1401,6 +1438,10 @@ function Viewport( editor ) {
 			if(editor.activeTool && editor.activeTool.render)
 			{
 				editor.activeTool.render(renderer,camera);
+			}
+			if(editor.model.entities)
+			{
+				editor.model.entities.render(renderer,camera);
 			}
 			if ( vr.currentSession === null ) viewHelper.render( renderer );
 			renderer.autoClear = true;

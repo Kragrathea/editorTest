@@ -309,6 +309,11 @@ class Entities{
 	constructor()
 	{
 		this.edges={};
+		this.inferHelpers=new InferHelpers();
+	}
+	render(renderer,camera)
+	{
+		this.inferHelpers.render(renderer,camera);
 	}
 	findEdge(id)
 	{
@@ -384,6 +389,7 @@ class Entities{
 			let newEdge = new Edge(newVerts[i],newVerts[i+1])
 
 window.editor.model.entities.edges[newEdge.id]=newEdge;
+window.editor.model.entities.inferHelpers.addEdge(newEdge);
 window.editor.execute( new AddObjectCommand(window.editor, newEdge.renderObject ) );		
 				
 		}
@@ -546,6 +552,7 @@ class Edge extends Entity{
 		}
 		let newEdge= new Edge(newVert,this.end)
 window.editor.model.entities.edges[newEdge.id]=newEdge;
+window.editor.model.entities.inferHelpers.addEdge(newEdge);
 window.editor.execute( new AddObjectCommand(window.editor, newEdge.renderObject ) );		
 		this.end.disconnect(this)//remove this edge from v2 connections
 
@@ -727,6 +734,120 @@ class InputPoint{
 	}
 
 }
+const dashedLineMaterial = new THREE.LineDashedMaterial( {
+	color: 0xffffff,
+	linewidth: 5,
+	scale: 1,
+	dashSize: 0.05,
+	gapSize: 0.05,
+} );
+const onLineMaterial = new THREE.LineDashedMaterial( {
+	color: 0x009999,
+	linewidth: 5,
+	scale: 1,
+	dashSize: 0.05,
+	gapSize: 0.05,
+} );
+const axisLineMaterial = new THREE.LineDashedMaterial( {
+	color: 0xffffff,
+	linewidth: 5,
+	scale: 1,
+	dashSize: 0.05,
+	gapSize: 0.05,
+} );
+class InferAxesHelper extends THREE.LineSegments {
+	constructor( size = 1 ) {
+		size = size || 1;
+		const vertices = [
+			-size, 0, 0,	size, 0, 0,
+			0,-size, 0,	0, size, 0,
+			0, 0,-size,	0, 0, size
+		];
+		const colors = [
+			1, 0, 0,	1, 0.0, 0,
+			0, 1, 0,	0.0, 1, 0,
+			0, 0, 1,	0, 0.0, 1
+		];
+		const geometry = new THREE.EdgesGeometry();
+		geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+		geometry.setAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
+
+	
+		//console.log({ vertexColors: THREE.VertexColors } )
+		const material = new THREE.LineDashedMaterial( { 
+			//color: 0xeeeeee,
+			vertexColors: true, 
+			toneMapped: false,
+			scale: 1,
+			dashSize: 0.05,
+			gapSize: 0.05,
+		}  );
+		material.visible=true;
+		super( geometry, material );
+		
+		this.computeLineDistances();
+		this.scale.set( 1, 1, 1 );
+		geometry.needsUpdate=true;
+
+		this.type = 'InferAxesHelper';
+	}
+
+	dispose() {
+
+		this.geometry.dispose();
+		this.material.dispose();
+
+	}
+
+}
+class InferHelpers{
+	constructor(  ) {
+		this.clear();
+		this.axisObjects=[];
+	}
+	clear()
+	{
+		this.edges=new Set()
+		this.verts=new Set()
+
+	}
+	intersect(ray,threshold)
+	{
+		//foreach edge
+		//edge.line
+		// let intersect=ray.distanceSqToSegment(edge.start.position.clone(),edge.end.position.clone(),a,b)
+		// if(intersect<0.00001)
+		// {
+		// }
+		// //foreach vertex
+		// let xAxisA= vert.position.clone();
+		// xAxisA.x-=1000;
+		// let xAxisB= vert.position.clone();
+		// xAxisB.x+=1000;
+		// let intersectX=ray.distanceSqToSegment(xAxisA,xAxisB,a,b)
+
+	}
+	addEdge(edge)
+	{
+		this.edges.add(edge);
+		let a= new InferAxesHelper(100)
+		//a.visible=true;
+		a.position.copy(edge.start.position);
+		this.axisObjects.push(a)
+
+		let b= new InferAxesHelper(100)
+		//b.visible=true;
+		b.position.copy(edge.end.position);
+		this.axisObjects.push(b)
+	}
+	render(renderer,camera)
+	{
+		this.axisObjects.forEach(ent=>{
+			renderer.render( ent, camera )
+		})
+	}
+}
+
 class LineTool extends Tool {
 
 	constructor(  ) {
@@ -743,13 +864,7 @@ class LineTool extends Tool {
 		geometry.needsUpdate=true;
 		//geometry.computeLineDistances();
 	
-		var dashedLineMaterial = new THREE.LineDashedMaterial( {
-			color: 0xffffff,
-			linewidth: 5,
-			scale: 1,
-			dashSize: 0.05,
-			gapSize: 0.05,
-		} );
+
 
 		this.lineHelper = new THREE.Line( geometry,  dashedLineMaterial );
 		this.lineHelper.visible=false;
