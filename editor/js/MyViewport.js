@@ -847,6 +847,7 @@ function Viewport( editor ) {
 		const array = getMousePosition( container.dom, event.clientX, event.clientY );
 		onUpPosition.fromArray( array );
 
+		let handled=false;
 		if(editor.activeTool && editor.activeTool.onMouseUp)
 		{
 			editor.activeTool.onMouseUp(event,onUpPosition,view)
@@ -854,9 +855,16 @@ function Viewport( editor ) {
 
 		//handleClick();
 
+
 		document.removeEventListener( 'mouseup', onMouseUp );
 
 	}
+	function onContextMenu(event)
+	{
+		console.log("Context Menu Disabled!!")
+		event.preventDefault();
+	}
+	document.addEventListener('contextmenu', onContextMenu);
 
 	function onTouchStart( event ) {
 
@@ -910,15 +918,32 @@ function Viewport( editor ) {
 		console.log("onKeyDown"+event.keyCode)
 		if(event.keyCode==32)
 		{
-			editor.setTool(new SelectTool());
-		}
-		if(event.keyCode==76 || event.keyCode==68) //L or D
+			//editor.setTool(new SelectTool());
+		}else if(event.keyCode==76 || event.keyCode==68) //L or D
 		{
-			editor.setTool(new LineTool());
+			//editor.setTool(new LineTool());
+		}else{
+			if(editor.activeTool && editor.activeTool.onKeyDown)
+				editor.activeTool.onKeyDown(event)	
 		}		
 	}
 	window.addEventListener( 'keydown', onKeyDown, false );
 
+	function onKeyUp(event)
+	{
+		console.log("onKeyUp"+event.keyCode)
+		if(event.keyCode==32)
+		{
+			editor.setTool(new SelectTool());
+		}else if(event.keyCode==76 || event.keyCode==68) //L or D
+		{
+			editor.setTool(new LineTool());
+		}else{
+			if(editor.activeTool && editor.activeTool.onKeyDown)
+				editor.activeTool.onKeyUp(event)	
+		}		
+	}
+	window.addEventListener( 'keyup', onKeyUp, false );
 	// controls need to be added *after* main logic,
 	// otherwise controls.enabled doesn't work.
 

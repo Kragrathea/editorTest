@@ -586,6 +586,8 @@ class InputPoint{
 	constructor(  ) {
 		this.raycaster = new THREE.Raycaster();//todo. reuse this?
 		this.raycaster.params.Line2={threshold :10};
+
+		this.lastInferLine=null;	//used for constraints
 	}
 
 	mouse = new THREE.Vector2();
@@ -612,6 +614,18 @@ class InputPoint{
 
 	}
 
+	lockInfer()
+	{
+		if(this.lastInferLine)
+		{
+			this.lockedInferLine=new THREE.Line3(this.lastInferLine[0].clone(),this.lastInferLine[1].clone());
+			console.log("LockingInferTo:"+JSON.stringify(this.lockedInferLine))
+		}
+	}
+	unlockInfer()
+	{
+		this.lockedInferLine=null;
+	}	
 	debugAxis = new THREE.AxesHelper( 1.1 )
 	viewCursor = this.debugAxis
 	pick(view,x,y){
@@ -628,6 +642,7 @@ class InputPoint{
 		} );
 		this.mouse.set( ( this.inPos.x * 2 ) - 1, - ( this.inPos.y * 2 ) + 1 );
 		this.raycaster.setFromCamera( this.mouse, view.camera );
+		this.raycaster.params.Line = { threshold: 0.1 };//why is this diff from line2?
 		this.raycaster.params.Line2 = { threshold: 10 };
 
 		var intersects =this.raycaster.intersectObjects( objects, false );
@@ -644,8 +659,9 @@ class InputPoint{
 		
 		this.viewCursorInferString="Nothing";
 		this.viewCursorValid=false;
-		
-		
+		this.lastInferLine=null;	//used for constraints
+
+	
 		//default to ground if over
 		var point = this.raycaster.ray.intersectPlane(this.groundPlane,new THREE.Vector3(0, 0, - 1));
 		if(point!==null){
@@ -689,6 +705,7 @@ class InputPoint{
 						}else {
 							this.viewCursorInferString="On Edge";
 							this.viewCursor.position.copy( intersect.pointOnLine );
+							this.lastInferLine=[v0.clone(),v1.clone()]
 							this.viewCursorValid=true;							
 						}						
 					}
@@ -702,38 +719,65 @@ class InputPoint{
 		}
 		else
 		{
-// 			var inferIntersects = view.getIntersects( this.inPos, lastInferAxes );
-// 			if ( inferIntersects.length > 0 ) {
-// 				for (var i = 0, len = inferIntersects.length; i < len; i++) {
-// 					var intersect = inferIntersects[ i ];
-// 					var inferedPoint = intersect.point;
-// 					//console.log("Infer Axis");
-// 					var dist= inferedPoint.distanceTo( intersect.object.position );	
-// 					if(dist<pointThreshold){
-// 						//snap to axis origin.
-// 						viewCursorInferString="Infer Origin";		
-// 						viewCursor.position.set( intersect.object.position.x,intersect.object.position.y,intersect.object.position.z );
-						
-// 						//break at this point?
-// 					}else
-// 					{
-// 						//snap to axis line.
-// 						viewCursorInferString="Infer Axis";		
-// 		//console.log( inferedPoint.distanceTo(raycaster.ray.at(intersect.distance)));
-// 						//dont use computed intersect point. Instead create new from closestPointToPoint
-// 						viewCursor.position.set( inferedPoint.x,inferedPoint.y,inferedPoint.z );
-// 					}
-// 					viewCursorValid=true;
-// 				}
-// 			}		
-// 			else{
-// //ground plane
-// 			}
+			//var intersects =this.raycaster.intersectObjects( objects, false );
+			var inferIntersects = this.raycaster.intersectObjects(editor.model.entities.inferHelpers.axisObjects,false );
+			if ( inferIntersects.length > 0 ) {
+				for (var i = 0, len = inferIntersects.length; i < len; i++) {
+					var intersect = inferIntersects[ i ];
+					var inferedPoint = intersect.point;
+					//console.log("Infer Axis");
+					if(intersect.object.type == 'InferEdgeHelper')
+					{
+						//snap to edge line.
+						this.viewCursorInferString="Infer EdgeLine";		
+						//let dir =intersect.point.clone().sub(intersect.object.position).normalize();
+						this.lastInferLine=[intersect.object.userData.start.clone(),intersect.object.userData.end.clone()]
+						this.viewCursor.position.set( inferedPoint.x,inferedPoint.y,inferedPoint.z );
+					}else{
+						var dist= inferedPoint.distanceTo( intersect.object.position );	
+						if(dist<pointThreshold){
+							//snap to axis origin.
+							this.viewCursorInferString="Infer Origin";		
+							this.viewCursor.position.set( intersect.object.position.x,intersect.object.position.y,intersect.object.position.z );
+							
+							//break at this point?
+						}else 
+						{
+							//snap to axis line.
+							this.viewCursorInferString="Infer Axis";		
+			//console.log( inferedPoint.distanceTo(raycaster.ray.at(intersect.distance)));
+							//dont use computed intersect point. Instead create new from closestPointToPoint
+							//let dir =intersect.point.clone().sub(intersect.object.position).normalize();
+							this.lastInferLine=[intersect.object.position.clone(),intersect.point.clone()]
+							//console.log("InferLine:"+JSON.stringify( this.lastInferLine))
+							this.viewCursor.position.set( inferedPoint.x,inferedPoint.y,inferedPoint.z );
+						}
+					}
+					this.viewCursorValid=true;
+				}
+			}		
+			else{
+//ground plane
+			}
+		}
+
+		//Final Contraints after infers
+		if(this.lockedInferLine && this.viewCursorValid)
+		{
+			console.log("this.lockedInferLine:"+JSON.stringify( this.lockedInferLine))
+			this.viewCursorInferString+=":LOCKED"
+			let outVect=new THREE.Vector3();
+			this.lockedInferLine.closestPointToPoint (this.viewCursor.position, false, outVect ) 
+			this.viewCursor.position.set( outVect.x,outVect.y,outVect.z );
+
 		}
 
 	}
 
 }
+const solidLineMaterial = new THREE.LineBasicMaterial( {
+	color: 0x000000,
+} );
 const dashedLineMaterial = new THREE.LineDashedMaterial( {
 	color: 0xffffff,
 	linewidth: 5,
@@ -800,10 +844,63 @@ class InferAxesHelper extends THREE.LineSegments {
 	}
 
 }
+class InferEdgeHelper extends THREE.LineSegments {
+	constructor( edge ) {
+		
+		let start = edge.start.position.clone()
+		let dir = edge.end.position.clone().sub(edge.start.position);
+		dir.setLength(1000);
+		let end = start.clone().add(dir)
+		start.sub(dir);			
+		const vertices = start.toArray().concat(end.toArray())
+		const colors = [
+			1, 0, 1,	1, 0.0, 1,
+		];
+		const geometry = new THREE.EdgesGeometry();
+		geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+		geometry.setAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
+
+	
+		//console.log({ vertexColors: THREE.VertexColors } )
+		const material = new THREE.LineDashedMaterial( { 
+			color: 0xee00ee,
+			vertexColors: false, 
+			toneMapped: false,
+			scale: 1,
+			dashSize: 0.05,
+			gapSize: 0.05,
+		}  );
+		material.visible=true;
+		super( geometry, material );
+		
+		this.computeLineDistances();
+		this.scale.set( 1, 1, 1 );
+		geometry.needsUpdate=true;
+
+		this.type = 'InferEdgeHelper';
+		this.userData={
+			start:start,
+			end:end
+		}
+	}
+
+	dispose() {
+
+		this.geometry.dispose();
+		this.material.dispose();
+
+	}
+
+}
 class InferHelpers{
 	constructor(  ) {
 		this.clear();
 		this.axisObjects=[];
+
+		//Scene Origin
+		let a= new InferAxesHelper(100)
+		//a.position.copy(edge.start.position);
+		this.axisObjects.push(a)
 	}
 	clear()
 	{
@@ -830,15 +927,20 @@ class InferHelpers{
 	addEdge(edge)
 	{
 		this.edges.add(edge);
-		let a= new InferAxesHelper(100)
-		//a.visible=true;
-		a.position.copy(edge.start.position);
-		this.axisObjects.push(a)
+		let eh=new InferEdgeHelper(edge);
+		this.axisObjects.push(eh)
 
-		let b= new InferAxesHelper(100)
-		//b.visible=true;
-		b.position.copy(edge.end.position);
-		this.axisObjects.push(b)
+		if(!this.verts.has(edge.start)){
+			let a= new InferAxesHelper(100)
+			a.position.copy(edge.start.position);
+			this.axisObjects.push(a)
+		}
+		if(!this.verts.has(edge.end)){
+			let a= new InferAxesHelper(100)
+			a.position.copy(edge.end.position);
+			this.axisObjects.push(a)
+		}
+
 	}
 	render(renderer,camera)
 	{
@@ -866,7 +968,7 @@ class LineTool extends Tool {
 	
 
 
-		this.lineHelper = new THREE.Line( geometry,  dashedLineMaterial );
+		this.lineHelper = new THREE.Line( geometry,  solidLineMaterial );
 		this.lineHelper.visible=false;
 
 	}
@@ -888,6 +990,16 @@ class LineTool extends Tool {
 	onMouseDown(event,position,view)
 	{
 		//console.log("onMouseDown:"+[event,position,view]) 
+	}
+	onKeyDown(event)
+	{
+		if(event.keyCode==16 && !event.repeat)
+			this.mouseIp.lockInfer();
+	}
+	onKeyUp(event)
+	{
+		if(event.keyCode==16)
+			this.mouseIp.unlockInfer();
 	}
 	onMouseUp(event,position,view)
 	{
