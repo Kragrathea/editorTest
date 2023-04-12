@@ -24,7 +24,8 @@ import { AddObjectCommand } from './commands/AddObjectCommand.js';
 import { Line2 } from '/examples/jsm/lines/Line2.js';
 import { LineMaterial } from '/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from '/examples/jsm/lines/LineGeometry.js';
-import { Model, Selection, SelectTool, LineTool } from './LineTool.js';
+import { Model, Selection, LineTool } from './LineTool.js';
+import { SelectTool } from './SelectTool.js';
 import CameraControls from './camera-controls.module.js';
 
 
@@ -287,6 +288,8 @@ class InferAxesHelper extends THREE.LineSegments {
 function Viewport( editor ) {
 
 	this.editor=editor;
+	editor.view=this;
+
 	const view = this;
 	
 	const signals = editor.signals;
@@ -939,7 +942,7 @@ function Viewport( editor ) {
 		{
 			editor.setTool(new LineTool());
 		}else{
-			if(editor.activeTool && editor.activeTool.onKeyDown)
+			if(editor.activeTool && editor.activeTool.onKeyUp)
 				editor.activeTool.onKeyUp(event)	
 		}		
 	}

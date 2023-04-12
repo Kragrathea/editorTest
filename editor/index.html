@@ -123,6 +123,7 @@
 			window.VRButton = VRButton; // Expose VRButton to APP Scripts
 
 			const viewport = new Viewport( editor );
+			editor.viewport=viewport;//todo remove this 
 			document.body.appendChild( viewport.dom );
 
 			const toolbar = new Toolbar( editor );

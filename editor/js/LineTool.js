@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { AddObjectCommand } from './commands/AddObjectCommand.js';
+import { Command } from './Command.js';
 import { Line2 } from '/examples/jsm/lines/Line2.js';
-import { LineMaterial } from '/examples/jsm/lines/LineMaterial.js';
+import { LineMaterial } from '/examples/jsm/lines/LineMaterial.js';  
 import { LineGeometry } from '/examples/jsm/lines/LineGeometry.js';
 import { Vector3 } from '../../src/math/Vector3.js';
+import { SelectTool } from './SelectTool.js';
 
 
 class ToolManager{
@@ -24,204 +26,6 @@ class ToolManager{
 
 }
 
-class Tool{
-	constructor(  ) {
-	}
-
-	activate()
-	{}
-  
-	deactivate(view)
-	{}
-  
-	// The {//draw} method is called by SketchUp whenever the view is refreshed to
-	// allow the tool to do its own drawing. If the tool has some temporary graphics
-	// that it wants displayed while it is active, it should implement this method
-	// and draw to the {Sketchup::View}.
-	//
-	// @example
-	//   draw(view)
-	//     // Draw a square.
-	//     points = [
-	//       Geom::Point3d.new(0, 0, 0),
-	//       Geom::Point3d.new(9, 0, 0),
-	//       Geom::Point3d.new(9, 9, 0),
-	//       Geom::Point3d.new(0, 9, 0)
-	//     ]
-	//     // Fill
-	//     view.drawing_color = Sketchup::Color.new(255, 128, 128)
-	//     view.draw(GL_QUADS, points)
-	//     // Outline
-	//     view.line_stipple = '' // Solid line
-	//     view.drawing_color = Sketchup::Color.new(64, 0, 0)
-	//     view.draw(GL_LINE_LOOP, points)
-	//   {}
-	//
-	// @note If you draw outside the model bounds you need to implement
-	//   {Tool//getExtents} which return a bounding box large enough to include the
-	//   points you draw. Otherwise your drawing will be clipped.
-	//
-	// @param [Sketchup::View] view
-	//   A View object where the method was invoked.
-	//
-	// @see getExtents
-	//
-	// @see Sketchup::View//draw
-	//
-	// @version SketchUp 6.0
-	draw(view)
-	{}
-  
-	// The {//enableVCB?} method is used to tell SketchUp whether to allow the user
-	// to enter text into the VCB (value control box, aka the "measurements" panel).
-	// If you do not implement this method, then the vcb is disabled by default.
-	//
-	// @example
-	//   // For this tool, allow vcb text entry while the tool is active.
-	//   enableVCB?
-	//     return true
-	//   {}
-	//
-	// @return [Boolean] Return +true+ if you want the VCB enabled
-	//
-	// @version SketchUp 6.0
-	enableVCB()//?
-	{}
-  
-	// In order to accurately draw things, SketchUp needs to know the extents of
-	// what it is drawing. If the tool is doing its own drawing, it may need to
-	// implement this method to tell SketchUp the extents of what it will be
-	// drawing. If you don't implement this method, you may find that part of what
-	// the tool is drawing gets clipped to the extents of the rest of the
-	// model.
-	//
-	// This must return a {Geom::BoundingBox}. In a typical implementation, you
-	// will create a new {Geom::BoundingBox}, add points to set the extents of the
-	// drawing that the tool will do and then return it.
-	//
-	// @example
-	//   getExtents
-	//     bb = Sketchup.active_model.bounds
-	//     return bb
-	//   {}
-	//
-	// @return [Geom::BoundingBox]
-	//
-	// @version SketchUp 6.0
-	getExtents()
-	{}
-  
-  
-	// The {//getMenu} method is called by SketchUp to let the tool provide its own
-	// context menu. Most tools will not want to implement this method and,
-	// instead, use the normal context menu found on all entities.
-	getMenu()
-	{}
-  
-	// The {//onCancel} method is called by SketchUp to cancel the current operation
-	// of the tool. The typical response will be to reset the tool to its initial
-	// state.
-	//
-	// The reason identifies the action that triggered the call. The reason can be
-	// one of the following values:
-	//
-	// - +0+: the user canceled the current operation by hitting the escape key.
-	// - +1+: the user re-selected the same tool from the toolbar or menu.
-	// - +2+: the user did an undo while the tool was active.
-	//
-	// @example
-	//   onCancel(reason, view)
-	//     puts "MyTool was canceled for reason ////{reason} in view: //{view}"
-	//   {}
-	//
-	// @note When something is undone {//onCancel} is called before the undo is
-	//   actually executed. If you need to do something with the model after an undo
-	//   use {Sketchup::ModelObserver//onTransactionUndo}.
-	//
-	// @note When {//onKeyDown} is implemented and returns +true+, pressing Esc
-	//   doesn't trigger {//onCancel}.
-	//
-	onCancel(reason, view)
-	{}
-  
-	onKeyDown(key, repeat, flags, view)
-	{}
-  
-	onKeyUp(key, repeat, flags, view)
-	{}
-  
-	onLButtonDoubleClick(flags, x, y, view)
-	{}
-  
-	onLButtonDown(flags, x, y, view)
-	{}
-  
-	onLButtonUp(flags, x, y, view)
-	{}
-  
-	onMButtonDoubleClick(flags, x, y, view)
-	{}
-  
-	onMButtonDown(flags, x, y, view)
-	{}
-  
-	onMButtonUp(flags, x, y, view)
-	{}
-  
-	// The {//onMouseEnter} method is called by SketchUp when the mouse enters the
-	// viewport.
-	onMouseEnter(view)
-	{}
-	onMouseLeave(view)
-	{}
-  
-	onMouseMove(flags, x, y, view)
-	{}
-  
-	//
-	// @return [Boolean] Return +true+ to prevent SketchUp from performing default
-	//   zoom action.
-	onMouseWheel(flags, delta, x, y, view)
-	{}
-  
-	onRButtonDoubleClick(flags, x, y, view)
-	{}
-	onRButtonDown(flags, x, y, view)
-	{}
-  
-	onRButtonUp(flags, x, y, view)
-	{}
-  
-	// The {//onReturn} method is called by SketchUp when the user hit the Return key
-	// to complete an operation in the tool. This method will rarely need to be
-	// implemented.
-	onReturn(view)
-	{}
-  
-	// The {//onSetCursor} method is called by SketchUp when the tool wants to set
-	// the cursor.
-	// @return [Boolean] Return +true+ to prevent SketchUp using the default cursor.
-	onSetCursor()
-	{}
-  
-	// The {//onUserText} method is called by SketchUp when the user has typed text
-	// into the VCB and hit return.
-	onUserText(text, view)
-	{}
-  
-	// The {//resume} method is called by SketchUp when the tool becomes active again
-	// after being suspended.
-	resume(view)
-	{}
-  
-	// The {//suspend} method is called by SketchUp when the tool temporarily becomes
-	// inactive because another tool has been activated. This typically happens
-	// when a viewing tool is activated, such as when orbit is active due to the
-	// middle mouse button.
-	suspend(view)
-	{}
-  
-  }
 class Entity{
 	constructor() {
 		this.id=THREE.MathUtils.generateUUID();
@@ -237,6 +41,7 @@ class Vertex extends Entity{
 		super()//important
 		this.connections=new Set()//Entity ids
 		this.position=position;
+		this.type="Vertex"
 	}
 	connect(otherEntity)
 	{
@@ -297,6 +102,11 @@ class Selection{
 		})
 		this.selected.clear();
 	}
+	toJSON()
+	{
+		return JSON.stringify(Array.from(this.selected))
+
+	}
 }
 class Model{
 	constructor()
@@ -305,28 +115,231 @@ class Model{
 	}
 }
 
+class SplitEdgeCommand extends Command {
+
+	constructor( editor, edge, splitPoint ) {
+
+		super( editor );
+		this.type = 'SplitEdgeCommand';
+		this.name = 'Split Edge';
+		this.updatable = false;
+		this.splitPoint=splitPoint;
+		//this.object = object;
+		this.edge= edge;
+	}
+
+	execute() {
+		console.log("do split")
+		//this.editor.model.edges
+		let newVert = new Vertex(this.splitPoint)
+		this.newVert=newVert;
+
+		let newEdge= new Edge(newVert,this.edge.end)
+
+		this.edge.end.disconnect(this.edge)//remove this edge from v2 connections
+
+		this.edge.end=newVert//new vert should already be connected right?
+		newVert.connect(this.edge);
+
+		window.editor.model.entities.edges[newEdge.id]=newEdge;
+		
+		this.newEdge=newEdge;
+		window.editor.view.render()
+
+		//window.editor.model.entities.inferHelpers.addEdge(newEdge);
+		//window.editor.execute( new AddObjectCommand(window.editor, newEdge.renderObject ) );		
+				
+
+	}
+
+	undo() {
+		console.log("undo split")
+
+		this.edge.end=this.newEdge.end
+		this.edge.end.connect(this.edge)
+
+		this.newEdge.end.disconnect(this.newEdge)
+		this.newEdge.start.disconnect(this.newEdge)
+		//this.newEdge.renderObject.dispose()
+		this.newEdge.renderObject=null;
+
+		this.edge.updateRenderObject();
+
+		if(this.editor.model.entities.edges[this.newEdge.id])
+			this.editor.model.entities.edges[this.newEdge.id]=null;
+
+		window.editor.model.entities.inferSet.removeEdgeRef(this.newEdge);
+
+		window.editor.view.render()
+	
+	}
+	// update( command ) {
+	// 	this.newPosition.copy( command.newPosition );
+	// }
+	toJSON() {
+		alert("Command.toJSON called")
+		return output;
+	}
+
+	fromJSON( json ) {
+		super.fromJSON( json );
+	}
+
+}
+
+class RemoveEdgeCommand extends Command {
+
+	constructor( editor, edge ) {
+
+		super( editor );
+		this.type = 'RemoveEdgeCommand';
+		this.name = 'Remove Edge';
+		this.updatable = false;
+		//this.object = object;
+		this.edge= edge;
+	}
+
+	execute() {
+		//this.editor.model.edges
+		if(this.editor.model.entities.edges[this.edge.id])
+			this.editor.model.entities.edges[this.edge.id]=null;//TODO. MUCH MORE to do here!!
+
+		window.editor.model.entities.inferSet.removeEdgeRef(this.edge);
+
+
+		// this.object.position.copy( this.newPosition );
+		// this.object.updateMatrixWorld( true );
+		// this.editor.signals.objectChanged.dispatch( this.object );
+	}
+
+	undo() {
+
+		this.editor.model.entities.edges[this.edge.id]=this.edge;
+	}
+	// update( command ) {
+	// 	this.newPosition.copy( command.newPosition );
+	// }
+	toJSON() {
+		alert("Command.toJSON called")
+		return output;
+	}
+
+	fromJSON( json ) {
+		super.fromJSON( json );
+	}
+
+}
+
+class AddEdgeCommand extends Command {
+
+	constructor( editor, edge ) {
+
+		super( editor );
+		this.type = 'AddEdgeCommand';
+		this.name = 'Add Edge';
+		this.updatable = false;
+		//this.object = object;
+		this.edge= edge;
+		// if ( object !== undefined && newPosition !== undefined ) {
+		// 	this.oldPosition = object.position.clone();
+		// 	this.newPosition = newPosition.clone();
+		// }
+	}
+
+	execute() {
+		console.log("do "+this.type)
+		//this.editor.model.edges
+		this.editor.model.entities.edges[this.edge.id]=this.edge;
+		window.editor.view.render()
+		// this.object.position.copy( this.newPosition );
+		// this.object.updateMatrixWorld( true );
+		// this.editor.signals.objectChanged.dispatch( this.object );
+	}
+
+	undo() {
+		console.log("undo "+this.type)
+		if(this.editor.model.entities.edges[this.edge.id])
+			this.editor.model.entities.edges[this.edge.id]=null;
+			
+		window.editor.model.entities.inferSet.removeEdgeRef(this.edge);
+	
+		window.editor.view.render()	
+		// this.object.position.copy( this.oldPosition );
+		// this.object.updateMatrixWorld( true );
+		// this.editor.signals.objectChanged.dispatch( this.object );
+	}
+	// update( command ) {
+	// 	this.newPosition.copy( command.newPosition );
+	// }
+	toJSON() {
+		console.log("*************AddEdgeCommand.toJSON called")
+		const output = super.toJSON( this );
+		// output.objectUuid = this.object.uuid;
+		// output.oldPosition = this.oldPosition.toArray();
+		// output.newPosition = this.newPosition.toArray();
+		return output;
+	}
+
+	fromJSON( json ) {
+		super.fromJSON( json );
+		// this.object = this.editor.objectByUuid( json.objectUuid );
+		// this.oldPosition = new Vector3().fromArray( json.oldPosition );
+		// this.newPosition = new Vector3().fromArray( json.newPosition );
+	}
+
+}
+
 class Entities{ 
 	constructor()
 	{
 		this.edges={};
-		this.inferHelpers=new InferHelpers();
+		this.edgesList=new EdgeList(1000);
+		// this.edgesList.add(new Vector3(),new Vector3(0,1,1));
+		// this.edgesList.add(new Vector3(),new Vector3(2,-1,0));
+		// this.edgesList.add(new Vector3(),new Vector3(2,-1,2));
+		// this.edgesList.setColor(1,new THREE.Color(0,1,0))
+		// this.edgesList.setColor(2,new THREE.Color(1,0,0))
+		// this.edgesList.add(new Vector3(),new Vector3(2,2,2));
+		//this.inferHelpers=new InferHelpers();
+		this.inferSet= new InferSet();
 	}
 	render(renderer,camera)
 	{
-		this.inferHelpers.render(renderer,camera);
+		//TODO: Find a better place for this!
+		edgeMaterial.resolution.set(editor.view.container.dom.offsetWidth, editor.view.container.dom.offsetHeight);	
+		selectedEdgeMaterial.resolution.set(editor.view.container.dom.offsetWidth, editor.view.container.dom.offsetHeight);				
+		//TODO: Find a better place for this!
+
+		Object.values(this.edges).forEach(edge => {
+			if(edge && edge.renderObject)
+			{
+				renderer.render(edge.renderObject, camera )
+			}
+		  })
+
+
+		//this.inferHelpers.render(renderer,camera);
+		this.inferSet.render(renderer,camera);
+		this.edgesList.render(renderer,camera)
 	}
 	findEdge(id)
 	{
 		return(this.edges[id]);
 	}
 
+	
+
+	//todo: undo/redo. Cases add/remove edge, split edge, move verts (and/or edge?)
 	addEdge(startPos,endPos){
 		
 		//find intersections
 		let allIntersect=[]
 		let ray=new THREE.Ray(startPos.clone(),endPos.clone().sub(startPos).normalize())
 		for (var key in this.edges){
-			let edge =this.edges[key];   
+			let edge =this.edges[key];
+			if(edge==null)
+				continue;
+
 			let a=new THREE.Vector3();
 			let b=new THREE.Vector3();
 			
@@ -379,8 +392,10 @@ class Entities{
 		}
 		sorted.forEach((intersect)=>{
 			let edge=intersect[1]
-			let newVert=edge.split(intersect[3])
-			newVerts.push(newVert)
+			//let newVert=edge.split(intersect[3])
+			//newVerts.push(newVert)
+			edge.split(intersect[3])
+			newVerts.push(edge.end)
 			
 		});
 		newVerts.push(new Vertex(endPos));
@@ -388,9 +403,16 @@ class Entities{
 		{
 			let newEdge = new Edge(newVerts[i],newVerts[i+1])
 
-window.editor.model.entities.edges[newEdge.id]=newEdge;
-window.editor.model.entities.inferHelpers.addEdge(newEdge);
-window.editor.execute( new AddObjectCommand(window.editor, newEdge.renderObject ) );		
+//window.editor.model.entities.edges[newEdge.id]=newEdge;
+//window.editor.model.entities.inferHelpers.addEdge(newEdge);
+
+//window.editor.model.entities.inferSet.addLine(newVerts[i].position,newVerts[i+1].position);
+//window.editor.model.entities.inferSet.addAxis(newVerts[i].position);
+//window.editor.model.entities.inferSet.addAxis(newVerts[i+1].position);
+
+window.editor.model.entities.inferSet.addEdgeRef(newEdge);
+
+window.editor.execute( new AddEdgeCommand(window.editor, newEdge ) );		
 				
 		}
 
@@ -453,11 +475,101 @@ const selectedEdgeMaterial = new LineMaterial( {
 	// }
 
 } );
+const edgeListMaterial = new LineMaterial( {
+
+	//color: 0x000000,
+	linewidth: 1, // in pixels
+	vertexColors: true,
+	//resolution:  // to be set by renderer, eventually
+	//dashed: false,
+	//alphaToCoverage: true,
+	// onBeforeCompile: shader => {
+	// 	shader.vertexShader = `
+	// 	${shader.vertexShader}
+	// 	`.replace(`uniform float linewidth;`, `attribute float linewidth;`);
+	// 	//console.log(shader.vertexShader)
+	// }
+
+} );
+class EdgeList{
+	constructor(initialSize=1000)
+	{
+		const edgeVerts=new Array(initialSize*2*3).fill(0.0);//fill size * 2 verts * 3 floats
+		// [
+		//	vertex1.position.x,vertex1.position.y,vertex1.position.z,
+		//	vertex2.position.x,vertex2.position.y,vertex2.position.z
+		//];
+		//edgeVerts[0]=1.0;
+		const edgeGeometry = new LineGeometry();
+		edgeGeometry.setPositions( edgeVerts );
+		const edgeColors=new Array(initialSize*2*3).fill(0);//fill size * 2 verts * 3 int(?)
+		const lineWidths=new Array(initialSize).fill(3)
+		edgeGeometry.setColors( edgeColors );
+		edgeGeometry.setAttribute("linewidth", new THREE.InstancedBufferAttribute(new Float32Array(lineWidths), 1));
+
+		edgeGeometry.maxInstancedCount = 0;
+
+		edgeGeometry.needsUpdate=true;
+
+		const edge = new Line2( edgeGeometry,  edgeListMaterial );
+		edge.computeLineDistances();
+		edge.scale.set( 1, 1, 1 );
+		edge.name="EdgeList";
+		//edge.userData.edgeId=this.id
+		this.renderObject=edge;
+	}
+	setColor(index,color)
+	{
+		let offset=index*3*2
+		this.renderObject.geometry.attributes.instanceColorStart.array[offset+0]=color.r*255;
+		this.renderObject.geometry.attributes.instanceColorStart.array[offset+1]=color.g*255;
+		this.renderObject.geometry.attributes.instanceColorStart.array[offset+2]=color.b*255;
+	}
+	add(start,end){
+		let index= this.renderObject.geometry.maxInstancedCount*3*2
+		this.renderObject.geometry.attributes.instanceStart.array[index+0]=start.x;
+		this.renderObject.geometry.attributes.instanceStart.array[index+1]=start.y;
+		this.renderObject.geometry.attributes.instanceStart.array[index+2]=start.z;
+		this.renderObject.geometry.attributes.instanceStart.array[index+3]=end.x;
+		this.renderObject.geometry.attributes.instanceStart.array[index+4]=end.y;
+		this.renderObject.geometry.attributes.instanceStart.array[index+5]=end.z;
+		// this.renderObject.geometry.attributes.instanceEnd.array[index+0]=start.x;
+		// this.renderObject.geometry.attributes.instanceEnd.array[index+1]=start.y;
+		// this.renderObject.geometry.attributes.instanceEnd.array[index+2]=start.z;
+		// this.renderObject.geometry.attributes.instanceEnd.array[index+3]=end.x;
+		// this.renderObject.geometry.attributes.instanceEnd.array[index+4]=end.y;
+		// this.renderObject.geometry.attributes.instanceEnd.array[index+5]=end.z;
+		this.renderObject.geometry.maxInstancedCount=this.renderObject.geometry.maxInstancedCount+1;
+		this.renderObject.computeLineDistances();
+		this.renderObject.scale.set( 1, 1, 1 );
+
+		this.renderObject.geometry.needsUpdate=true;
+		this.renderObject.geometry.attributes.instanceStart.needsUpdate=true;
+		this.renderObject.geometry.attributes.instanceEnd.needsUpdate=true;
+		setTimeout(() => { 
+			//this.renderObject.geometry.attributes.instanceEnd.setY(0, 0.5); 
+			//this.renderObject.geometry.attributes.instanceStart.setY(1, 0.5); 
+			//geometry.attributes.instanceEnd.setX(0, 0.5); 
+			//geometry.attributes.instanceStart.setX(1, 0.5); 
+			//this.renderObject.geometry.attributes.instanceStart.needsUpdate = true 
+			//this.renderObject.geometry.attributes.instanceEnd.needsUpdate = true 
+		}, 500)
+
+	}
+	render(renderer,camera)
+	{
+		edgeListMaterial.resolution.set(editor.view.container.dom.offsetWidth, editor.view.container.dom.offsetHeight);		
+
+		renderer.render(this.renderObject, camera )
+	}	
+	
+}
 
 class Edge extends Entity{
 	//vertices=[ new THREE.Vertex(), new THREE.Vertex()];
 	constructor(vertex1,vertex2) {
 		super()
+		this.type="Edge"
 		//this.vertices=[vertex1,vertex2]
 		this.start=vertex1
 		this.end=vertex2
@@ -465,9 +577,14 @@ class Edge extends Entity{
 		vertex1.connect(this)
 		vertex2.connect(this)
 
+		this.createRenderObject();
+
+	}
+	createRenderObject()
+	{
 		const edgeVerts= [
-			vertex1.position.x,vertex1.position.y,vertex1.position.z,
-			vertex2.position.x,vertex2.position.y,vertex2.position.z
+			this.start.position.x,this.start.position.y,this.start.position.z,
+			this.end.position.x,this.end.position.y,this.end.position.z
 		];
 		const edgeGeometry = new LineGeometry();
 		edgeGeometry.setPositions( edgeVerts );
@@ -484,10 +601,36 @@ class Edge extends Entity{
 		edge.name="Edge";
 		edge.userData.edgeId=this.id
 		this.renderObject=edge;
+	}
+	updateRenderObject()
+	{
+		if(this.renderObject && this.renderObject.geometry)
+		{
+			this.renderObject.geometry.attributes.instanceStart.array[0]=this.start.position.x;
+			this.renderObject.geometry.attributes.instanceStart.array[1]=this.start.position.y;
+			this.renderObject.geometry.attributes.instanceStart.array[2]=this.start.position.z;
 
+			this.renderObject.geometry.attributes.instanceStart.array[3]=this.end.position.x;
+			this.renderObject.geometry.attributes.instanceStart.array[4]=this.end.position.y;
+			this.renderObject.geometry.attributes.instanceStart.array[5]=this.end.position.z;
+			this.renderObject.geometry.needsUpdate=true;
+			this.renderObject.geometry.attributes.instanceStart.needsUpdate=true;
+			this.renderObject.geometry.attributes.instanceEnd.needsUpdate=true;
+			setTimeout(() => { 
+				//this.renderObject.geometry.attributes.instanceEnd.setY(0, 0.5); 
+				//this.renderObject.geometry.attributes.instanceStart.setY(1, 0.5); 
+				//geometry.attributes.instanceEnd.setX(0, 0.5); 
+				//geometry.attributes.instanceStart.setX(1, 0.5); 
+				//this.renderObject.geometry.attributes.instanceStart.needsUpdate = true 
+				//this.renderObject.geometry.attributes.instanceEnd.needsUpdate = true 
+				window.editor.view.render()
+			}, 100)
+				
+		}
 	}
 	toJSON(){
 		let data={
+			type:this.type,
 			id:this.id,
 			start:this.start,
 			end:this.end
@@ -496,11 +639,13 @@ class Edge extends Entity{
 	}
 	doSelect()
 	{
-		this.renderObject.material=selectedEdgeMaterial;
+		if(this.renderObject)
+			this.renderObject.material=selectedEdgeMaterial;
 	}
 	doUnselect()
 	{
-		this.renderObject.material=edgeMaterial;
+		if(this.renderObject)
+			this.renderObject.material=edgeMaterial;
 	}	
 	allConnected()
 	{
@@ -531,35 +676,24 @@ class Edge extends Entity{
 			console.log("Merge End")
 			return this.end
 		}
-		let newVert = new Vertex(splitPoint)
-		if(this.renderObject && this.renderObject.geometry)
-		{
-			this.renderObject.geometry.attributes.instanceStart.array[3]=newVert.position.x;
-			this.renderObject.geometry.attributes.instanceStart.array[4]=newVert.position.y;
-			this.renderObject.geometry.attributes.instanceStart.array[5]=newVert.position.z;
-			this.renderObject.geometry.needsUpdate=true;
-			this.renderObject.geometry.attributes.instanceStart.needsUpdate;
-			this.renderObject.geometry.attributes.instanceEnd.needsUpdate;
-			setTimeout(() => { 
-				//this.renderObject.geometry.attributes.instanceEnd.setY(0, 0.5); 
-				//this.renderObject.geometry.attributes.instanceStart.setY(1, 0.5); 
-				//geometry.attributes.instanceEnd.setX(0, 0.5); 
-				//geometry.attributes.instanceStart.setX(1, 0.5); 
-				this.renderObject.geometry.attributes.instanceStart.needsUpdate = true 
-				this.renderObject.geometry.attributes.instanceEnd.needsUpdate = true }, 500)
 
+window.editor.execute( new SplitEdgeCommand(window.editor, this, splitPoint ) );		
 
-		}
-		let newEdge= new Edge(newVert,this.end)
-window.editor.model.entities.edges[newEdge.id]=newEdge;
-window.editor.model.entities.inferHelpers.addEdge(newEdge);
-window.editor.execute( new AddObjectCommand(window.editor, newEdge.renderObject ) );		
-		this.end.disconnect(this)//remove this edge from v2 connections
+// 		let newVert = new Vertex(splitPoint)
 
-		this.end=newVert//new vert should already be connected right?
-		newVert.connect(this);
+// 		let newEdge= new Edge(newVert,this.end)
 
-		return newVert
+// window.editor.model.entities.edges[newEdge.id]=newEdge;
+// //window.editor.model.entities.inferHelpers.addEdge(newEdge);
+// //window.editor.execute( new AddObjectCommand(window.editor, newEdge.renderObject ) );		
+// 		this.end.disconnect(this)//remove this edge from v2 connections
+
+// 		this.end=newVert//new vert should already be connected right?
+// 		newVert.connect(this);
+
+		this.updateRenderObject();
+
+		//return newVert
 	}
 	splitDist(dist){}
 	commonFace(otherEdge)
@@ -640,6 +774,15 @@ class InputPoint{
 		view.scene.traverseVisible( function ( child ) {
 			objects.push( child );
 		} );
+		
+		
+		Object.values(view.model.entities.edges).forEach(edge => {
+			if(edge && edge.renderObject)
+			{
+				objects.push( edge.renderObject );
+			}
+		  })
+
 		this.mouse.set( ( this.inPos.x * 2 ) - 1, - ( this.inPos.y * 2 ) + 1 );
 		this.raycaster.setFromCamera( this.mouse, view.camera );
 		this.raycaster.params.Line = { threshold: 0.1 };//why is this diff from line2?
@@ -720,13 +863,14 @@ class InputPoint{
 		else
 		{
 			//var intersects =this.raycaster.intersectObjects( objects, false );
-			var inferIntersects = this.raycaster.intersectObjects(editor.model.entities.inferHelpers.axisObjects,false );
+			//var inferIntersects = this.raycaster.intersectObjects(editor.model.entities.inferHelpers.axisObjects,false );
+			var inferIntersects = this.raycaster.intersectObjects(editor.model.entities.inferSet.objects,false );
 			if ( inferIntersects.length > 0 ) {
 				for (var i = 0, len = inferIntersects.length; i < len; i++) {
 					var intersect = inferIntersects[ i ];
 					var inferedPoint = intersect.point;
 					//console.log("Infer Axis");
-					if(intersect.object.type == 'InferEdgeHelper')
+					if(intersect.object.type == 'InferEdgeHelper' ||intersect.object.type == 'InferLineHelper' )
 					{
 						//snap to edge line.
 						this.viewCursorInferString="Infer EdgeLine";		
@@ -793,7 +937,8 @@ const onLineMaterial = new THREE.LineDashedMaterial( {
 	gapSize: 0.05,
 } );
 const axisLineMaterial = new THREE.LineDashedMaterial( {
-	color: 0xffffff,
+	//color: 0xffffff,
+	vertexColors: true,
 	linewidth: 5,
 	scale: 1,
 	dashSize: 0.05,
@@ -816,18 +961,7 @@ class InferAxesHelper extends THREE.LineSegments {
 		geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
 		geometry.setAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
 
-	
-		//console.log({ vertexColors: THREE.VertexColors } )
-		const material = new THREE.LineDashedMaterial( { 
-			//color: 0xeeeeee,
-			vertexColors: true, 
-			toneMapped: false,
-			scale: 1,
-			dashSize: 0.05,
-			gapSize: 0.05,
-		}  );
-		material.visible=true;
-		super( geometry, material );
+		super( geometry, axisLineMaterial );
 		
 		this.computeLineDistances();
 		this.scale.set( 1, 1, 1 );
@@ -860,18 +994,7 @@ class InferEdgeHelper extends THREE.LineSegments {
 		geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
 		geometry.setAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
 
-	
-		//console.log({ vertexColors: THREE.VertexColors } )
-		const material = new THREE.LineDashedMaterial( { 
-			color: 0xee00ee,
-			vertexColors: false, 
-			toneMapped: false,
-			scale: 1,
-			dashSize: 0.05,
-			gapSize: 0.05,
-		}  );
-		material.visible=true;
-		super( geometry, material );
+		super( geometry, axisLineMaterial );
 		
 		this.computeLineDistances();
 		this.scale.set( 1, 1, 1 );
@@ -891,6 +1014,154 @@ class InferEdgeHelper extends THREE.LineSegments {
 
 	}
 
+}
+class InferLineHelper extends THREE.LineSegments {
+	constructor( start,end ) {
+		
+		//let start = edge.start.position.clone()
+		let dir = end.clone().sub(start);
+		dir.setLength(1000);
+		let newEnd = start.clone().add(dir)
+		let newStart=start.clone().sub(dir);			
+		const vertices = newStart.toArray().concat(newEnd.toArray())
+		const colors = [
+			1, 0, 1,	1, 0.0, 1,
+		];
+		const geometry = new THREE.EdgesGeometry();
+		geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+		geometry.setAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
+
+		super( geometry, axisLineMaterial );
+		
+		this.computeLineDistances();
+		this.scale.set( 1, 1, 1 );
+		geometry.needsUpdate=true;
+
+		this.type = 'InferLineHelper';
+		this.userData={
+			start:start,
+			end:end
+		}
+	}
+	setFromEdge(edge)
+	{
+		let end=edge.end.position
+		let start=edge.start.position;
+		let dir = end.clone().sub(start);
+		dir.setLength(1000);
+		let newEnd = start.clone().add(dir)
+		let newStart=start.clone().sub(dir);			
+
+		const vertices = newStart.toArray().concat(newEnd.toArray())
+
+		this.geometry.attributes.position.array[0]=newStart.x;
+		this.geometry.attributes.position.array[1]=newStart.y;
+		this.geometry.attributes.position.array[2]=newStart.z;
+		this.geometry.attributes.position.array[3]=newEnd.x;
+		this.geometry.attributes.position.array[4]=newEnd.y;
+		this.geometry.attributes.position.array[5]=newEnd.z;
+
+
+		this.computeLineDistances();
+		this.scale.set( 1, 1, 1 );
+		this.geometry.attributes.position.needsUpdate=true;
+
+		this.userData={
+			start:start,
+			end:end
+		}
+	}
+
+	dispose() {
+
+		this.geometry.dispose();
+		this.material.dispose();
+
+	}
+
+}
+class InferSet{
+	constructor( start,end ) {
+		this.objects=[]
+		this.edgeRefs=[];
+		this.axisObjects=[];
+		this.lineObjects=[];
+		for(var i=0;i<40;i++)
+		{
+			let a= new InferAxesHelper(100)
+			this.axisObjects.push(a);			
+			let l=new InferLineHelper(new Vector3(),new Vector3());
+			this.lineObjects.push(l);
+		}
+	}
+	remove(obj)
+	{
+		const index = this.objects.indexOf(obj);
+		if (index > -1) { 
+			this.objects.splice(index, 1); 
+		}
+	}
+	build()
+	{
+		let ai=0;
+		let li=0;
+		let all=[]
+		this.edgeRefs.forEach(edge=>{
+			if(edge){
+				this.axisObjects[ai].position.copy(edge.start.position)
+				all.push(this.axisObjects[ai++])
+
+				this.axisObjects[ai].position.copy(edge.end.position)
+				all.push(this.axisObjects[ai++])
+
+				this.lineObjects[li].setFromEdge(edge)
+				all.push(this.lineObjects[li++])
+
+			}
+		})
+		return all;
+		//foreach edge
+		//inactive/deleted fall out.
+		//add axis for verts
+		//set line for edge
+	}
+	intersectWith(ray)
+	{
+		//handle rebuild and then efficent intersection
+	}
+	addEdgeRef(edge)
+	{
+		this.edgeRefs.push(edge)
+	}
+	removeEdgeRef(edge)
+	{
+		const index = this.edgeRefs.indexOf(edge);
+		if (index > -1) { 
+			this.edgeRefs.splice(index, 1); 
+		}
+	}	
+	addAxis(position){
+		let a= new InferAxesHelper(100)
+		a.position.copy(position);
+		this.objects.push(a);
+		return a;
+	}
+	addLine(start,end){
+		let l=new InferLineHelper(start,end);
+		this.objects.push(l);
+		return l;
+	}
+	render(renderer,camera)
+	{
+		this.objects.forEach((ent)=>{
+			renderer.render( ent, camera )
+		})
+		let otherObjects=this.build()
+		otherObjects.forEach((ent)=>{
+			renderer.render( ent, camera )
+		})
+
+	}	
 }
 class InferHelpers{
 	constructor(  ) {
@@ -950,10 +1221,10 @@ class InferHelpers{
 	}
 }
 
-class LineTool extends Tool {
+class LineTool {
 
 	constructor(  ) {
-		super( );
+		//super( );
 
 		//const geometry = new THREE.BufferGeometry ();
 		const lineHelperVertices = [];
@@ -1015,15 +1286,27 @@ class LineTool extends Tool {
 				this.firstIp.clear();
 				console.log("LineTool.onMouseUp:RightButton")
 				this.lineHelper.visible=false;
+				
+				if(this.tempAxis){
+					window.editor.model.entities.inferSet.remove(this.tempAxis)
+					this.tempAxis=null;
+				}
+
 				view.render()
 				return;
 			}
 		if(!this.firstIp.viewCursorValid){
 			this.firstIp.pick(view,position.x,position.y)
 			this.lineHelper.visible=true;
+			//console.log(position)
+			this.tempAxis=window.editor.model.entities.inferSet.addAxis(this.firstIp.viewCursor.position);
 			return;
 		}else
 		{
+			if(this.tempAxis){
+				window.editor.model.entities.inferSet.remove(this.tempAxis)
+				this.tempAxis=null;
+			}
 			this.mouseIp.pick(view,position.x,position.y)
 			if(this.mouseIp.viewCursorValid)
 			{
@@ -1032,10 +1315,7 @@ class LineTool extends Tool {
 				// const edge=new Edge(new Vertex(this.firstIp.viewCursor.position.clone()),
 				// 					new Vertex(this.mouseIp.viewCursor.position.clone()))
 
-		//TODO: Find a better place for this!
-		edgeMaterial.resolution.set(view.container.dom.offsetWidth, view.container.dom.offsetHeight);		
-		selectedEdgeMaterial.resolution.set(view.container.dom.offsetWidth, view.container.dom.offsetHeight);				
-		//TODO: Find a better place for this!
+
 
 				//let edge=
 				view.editor.model.entities.addEdge(this.firstIp.viewCursor.position.clone(),
@@ -1127,10 +1407,10 @@ class LineTool extends Tool {
 
 }
 
-class MoveTool extends Tool {
+class MoveTool {
 
 	constructor(  ) {
-		super( );
+		//super( );
 	}
 	activate()
 	{
@@ -1168,78 +1448,6 @@ class MoveTool extends Tool {
 	}
 
 }
-class SelectTool extends Tool {
-
-	constructor(  ) {
-		super( );
-		this.mouseIp=new InputPoint()
-	}
-	activate()
-	{
-		console.log("SelectTool.activate")
-	}
-	deactivate()
-	{
-		console.log("SelectTool.deactivate")
-	}
-	onMouseDown(event,position,view)
-	{
-		console.log("onMouseDown:"+[event,position,view]) 
-	}
-	onMouseUp(event,position,view)
-	{
-		let intersects =  view.getIntersects( position )
-		if(intersects.length>0)
-		{
-			if(intersects[0].object.userData.edgeId)
-			{
-				let edge= view.editor.model.entities.findEdge(intersects[0].object.userData.edgeId)
-				if(event.shiftKey)
-					view.selection.toggle(edge)
-				else{
-					view.selection.clear();
-					view.selection.toggle(edge)
-				}
-			}else{
-				view.signals.intersectionsDetected.dispatch( intersects );
-			}
-		}
-		view.render();
-		//console.log("onMouseUp:"+[event,position,intersects.length])
-	}
-	resume()
-	{}
-	suspend()
-	{}
-	onCancel()
-	{}
-	onMouseMove(event,position,view){
-				//console.log("onMouseMove")
-		if(true){
-			this.mouseIp.pick(view,position.x,position.y)
-			view.viewportInfo.setInferText(this.mouseIp.viewCursorInferString);
-		}
-		//console.log("onMouseDown:"+[event,position,view]) 
-	}
-	onLbutton(){}
-	onSetCursor(){}
-	draw(){}
-	updateUi(){}
-	resetTool(){}
-	pickedPoints(){}
-	drawPreview(){}
-
-	//activate
-	//active_model.select_tool(new LineTool())
-
-	dispose() {
-
-		//this.geometry.dispose();
-		//this.material.dispose();
-
-	}
-
-}
 
 
-export { LineTool,MoveTool,SelectTool,Entities,Selection, Model };
+export { LineTool,MoveTool,SelectTool,Entities,Selection, Model, InputPoint, RemoveEdgeCommand };
