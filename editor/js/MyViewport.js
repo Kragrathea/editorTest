@@ -24,7 +24,7 @@ import { AddObjectCommand } from './commands/AddObjectCommand.js';
 import { Line2 } from '/examples/jsm/lines/Line2.js';
 import { LineMaterial } from '/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from '/examples/jsm/lines/LineGeometry.js';
-import { Model, Selection, LineTool } from './LineTool.js';
+import { Model, Selection, LineTool, MoveTool } from './LineTool.js';
 import { SelectTool } from './SelectTool.js';
 import CameraControls from './camera-controls.module.js';
 
@@ -935,12 +935,20 @@ function Viewport( editor ) {
 	function onKeyUp(event)
 	{
 		console.log("onKeyUp"+event.keyCode)
-		if(event.keyCode==32)
+		if(event.keyCode==27)
+		{
+			if(editor.activeTool && editor.activeTool.cancel)
+				editor.activeTool.cancel(event)
+
+		}else if(event.keyCode==32)
 		{
 			editor.setTool(new SelectTool());
 		}else if(event.keyCode==76 || event.keyCode==68) //L or D
 		{
 			editor.setTool(new LineTool());
+		}else if(event.keyCode==77) //L or D
+		{
+			editor.setTool(new MoveTool());
 		}else{
 			if(editor.activeTool && editor.activeTool.onKeyUp)
 				editor.activeTool.onKeyUp(event)	

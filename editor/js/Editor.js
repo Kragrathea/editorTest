@@ -680,6 +680,8 @@ Editor.prototype = {
 		this.history.fromJSON( json.history );
 		this.scripts = json.scripts;
 
+		//this.model=JSON.parse(json.model);
+
 		this.setScene( await loader.parseAsync( json.scene ) );
 
 	},
@@ -718,6 +720,7 @@ Editor.prototype = {
 			},
 			camera: this.camera.toJSON(),
 			scene: this.scene.toJSON(),
+			//model: this.model.toJSON(),
 			scripts: this.scripts,
 			history: this.history.toJSON()
 

@@ -27,8 +27,10 @@ class ToolManager{
 }
 
 class Entity{
+	static byId={}//should be weak set
 	constructor() {
 		this.id=THREE.MathUtils.generateUUID();
+		Entity.byId[this.id]=this;
 	}
 }
 class Vertex extends Entity{
@@ -42,6 +44,7 @@ class Vertex extends Entity{
 		this.connections=new Set()//Entity ids
 		this.position=position;
 		this.type="Vertex"
+		//console.log(["byId",Entity.byId])
 	}
 	connect(otherEntity)
 	{
@@ -52,6 +55,17 @@ class Vertex extends Entity{
 	{
 		//todo should only be edge?
 		this.connections.delete(otherEntity); 
+	}
+	allEdges()
+	{
+		return Array.from(this.connections)
+
+	}
+	updateRenderObjects()
+	{
+		this.allEdges().forEach((edge)=>{
+			edge.updateRenderObject();
+		})
 	}	
 	toJSON()
 	{
@@ -65,6 +79,15 @@ class Vertex extends Entity{
 			connections:connectionIds
 		}	
 		return data;	
+	}
+	fromJSON(json)
+	{
+		if(Entity.byId[json.id])
+			return Entity.byId[json.id]
+		else{
+			this.id=json.id;
+			this.position=
+		}
 	}
 	copy(){	}
 	
@@ -113,8 +136,75 @@ class Model{
 	{
 		this.entities=new Entities();
 	}
+	toJSON()
+	{
+		return {
+			entities:this.entities
+		}
+	}
+	fromJSON(json)
+	{
+		this.entities=new Entities();
+	}
 }
+class MoveEntitesCommand extends Command {
 
+	constructor( editor, entities, vector ) {
+
+		super( editor );
+		this.type = 'MoveEntitesCommand';
+		this.name = 'Move Entites';
+		this.updatable = false;
+		//this.object = object;
+		this.entities= entities;
+		this.vector=vector;
+	}
+
+	execute() {
+		this.allVerts={}
+		this.entities.forEach(ent=>{
+			if(ent.type=="Edge")
+			{
+				this.allVerts[ent.start.id]=ent.start;
+				this.allVerts[ent.end.id]=ent.end;
+			}
+		})
+		Object.values(this.allVerts).forEach(vert=>{
+			vert.position.add(this.vector);
+			vert.updateRenderObjects();
+		})
+
+		//this.editor.model.edges
+		// if(this.editor.model.entities.edges[this.edge.id])
+		// 	this.editor.model.entities.edges[this.edge.id]=null;//TODO. MUCH MORE to do here!!
+
+		// window.editor.model.entities.inferSet.removeEdgeRef(this.edge);
+
+
+		// this.object.position.copy( this.newPosition );
+		// this.object.updateMatrixWorld( true );
+		// this.editor.signals.objectChanged.dispatch( this.object );
+	}
+
+	undo() {
+		Object.values(this.allVerts).forEach(vert=>{
+			vert.position.add(this.vector.clone().negate());
+			vert.updateRenderObjects();
+		})
+	}
+	// update( command ) {
+	// 	this.newPosition.copy( command.newPosition );
+	// }
+	toJSON() {
+		alert("Command.toJSON called")
+		return output;
+	}
+
+	fromJSON( json ) {
+		super.fromJSON( json );
+	}
+
+}
 class SplitEdgeCommand extends Command {
 
 	constructor( editor, edge, splitPoint ) {
@@ -146,6 +236,7 @@ class SplitEdgeCommand extends Command {
 		this.newEdge=newEdge;
 		window.editor.view.render()
 
+		window.editor.model.entities.inferSet.addEdgeRef(this.newEdge);
 		//window.editor.model.entities.inferHelpers.addEdge(newEdge);
 		//window.editor.execute( new AddObjectCommand(window.editor, newEdge.renderObject ) );		
 				
@@ -215,6 +306,7 @@ class RemoveEdgeCommand extends Command {
 	undo() {
 
 		this.editor.model.entities.edges[this.edge.id]=this.edge;
+		window.editor.model.entities.inferSet.addEdgeRef(this.edge);
 	}
 	// update( command ) {
 	// 	this.newPosition.copy( command.newPosition );
@@ -250,6 +342,7 @@ class AddEdgeCommand extends Command {
 		console.log("do "+this.type)
 		//this.editor.model.edges
 		this.editor.model.entities.edges[this.edge.id]=this.edge;
+		window.editor.model.entities.inferSet.addEdgeRef(this.edge);
 		window.editor.view.render()
 		// this.object.position.copy( this.newPosition );
 		// this.object.updateMatrixWorld( true );
@@ -302,6 +395,12 @@ class Entities{
 		// this.edgesList.add(new Vector3(),new Vector3(2,2,2));
 		//this.inferHelpers=new InferHelpers();
 		this.inferSet= new InferSet();
+	}
+	toJSON()
+	{
+		return {
+			edges:this.edges
+		};
 	}
 	render(renderer,camera)
 	{
@@ -378,8 +477,6 @@ class Entities{
 		//foreach intersect
 		//intersectEdge.split(intersectNewVertex)//in theory returns new edge/vertex. do we need?
 
-		console.log([sorted.length])
-		console.log([sorted.length==0])
 		if(sorted.length)
 		{
 			console.log( startPos.distanceTo(sorted[0][2]))
@@ -395,7 +492,9 @@ class Entities{
 			//let newVert=edge.split(intersect[3])
 			//newVerts.push(newVert)
 			edge.split(intersect[3])
-			newVerts.push(edge.end)
+
+			newVerts.push(new Vertex(intersect[3]))
+			//newVerts.push(edge.end)
 			
 		});
 		newVerts.push(new Vertex(endPos));
@@ -410,7 +509,7 @@ class Entities{
 //window.editor.model.entities.inferSet.addAxis(newVerts[i].position);
 //window.editor.model.entities.inferSet.addAxis(newVerts[i+1].position);
 
-window.editor.model.entities.inferSet.addEdgeRef(newEdge);
+//window.editor.model.entities.inferSet.addEdgeRef(newEdge);
 
 window.editor.execute( new AddEdgeCommand(window.editor, newEdge ) );		
 				
@@ -616,6 +715,7 @@ class Edge extends Entity{
 			this.renderObject.geometry.needsUpdate=true;
 			this.renderObject.geometry.attributes.instanceStart.needsUpdate=true;
 			this.renderObject.geometry.attributes.instanceEnd.needsUpdate=true;
+			this.renderObject.geometry.computeBoundingBox();
 			setTimeout(() => { 
 				//this.renderObject.geometry.attributes.instanceEnd.setY(0, 0.5); 
 				//this.renderObject.geometry.attributes.instanceStart.setY(1, 0.5); 
@@ -623,7 +723,7 @@ class Edge extends Entity{
 				//geometry.attributes.instanceStart.setX(1, 0.5); 
 				//this.renderObject.geometry.attributes.instanceStart.needsUpdate = true 
 				//this.renderObject.geometry.attributes.instanceEnd.needsUpdate = true 
-				window.editor.view.render()
+				//window.editor.view.render()
 			}, 100)
 				
 		}
@@ -636,6 +736,15 @@ class Edge extends Entity{
 			end:this.end
 		}
 		return data;
+	}
+	fromJSON(json)
+	{
+		this.type=data.type;
+		this.id=data.id;
+		let start = data.start
+		this.type=data.type;
+		this.type=data.type;
+
 	}
 	doSelect()
 	{
@@ -864,7 +973,9 @@ class InputPoint{
 		{
 			//var intersects =this.raycaster.intersectObjects( objects, false );
 			//var inferIntersects = this.raycaster.intersectObjects(editor.model.entities.inferHelpers.axisObjects,false );
-			var inferIntersects = this.raycaster.intersectObjects(editor.model.entities.inferSet.objects,false );
+			//var inferIntersects = this.raycaster.intersectObjects(editor.model.entities.inferSet.objects,false );
+			var inferObjects = editor.model.entities.inferSet.build();//TODO:Cache this!
+			var inferIntersects = this.raycaster.intersectObjects(inferObjects,false );
 			if ( inferIntersects.length > 0 ) {
 				for (var i = 0, len = inferIntersects.length; i < len; i++) {
 					var intersect = inferIntersects[ i ];
@@ -1109,13 +1220,16 @@ class InferSet{
 		this.edgeRefs.forEach(edge=>{
 			if(edge){
 				this.axisObjects[ai].position.copy(edge.start.position)
-				all.push(this.axisObjects[ai++])
+				all.push(this.axisObjects[ai])
+				ai=(ai+1)%this.axisObjects.length;//wrap at end of axis array
 
 				this.axisObjects[ai].position.copy(edge.end.position)
-				all.push(this.axisObjects[ai++])
+				all.push(this.axisObjects[ai])
+				ai=(ai+1)%this.axisObjects.length;//wrap at end of axis array
 
 				this.lineObjects[li].setFromEdge(edge)
-				all.push(this.lineObjects[li++])
+				all.push(this.lineObjects[li])
+				li=(li+1)%this.lineObjects.length;//wrap at end of axis array
 
 			}
 		})
@@ -1411,10 +1525,24 @@ class MoveTool {
 
 	constructor(  ) {
 		//super( );
+		const lineHelperVertices = [];
+		lineHelperVertices.push(
+			new THREE.Vector3( 0, 0, 0 ),
+			new THREE.Vector3( 0, 0, 0 ),
+		);
+		const geometry =new THREE.BufferGeometry().setFromPoints( lineHelperVertices );
+		//geometry.setAttribute('position', new THREE.Float32BufferAttribute(lineHelperVertices, 3));
+		geometry.needsUpdate=true;
+		//geometry.computeLineDistances();
+
+		this.lineHelper = new THREE.Line( geometry,  solidLineMaterial );
+		this.lineHelper.visible=false;
 	}
 	activate()
 	{
 		console.log("MoveTool.activate")
+		this.mouseIp=new InputPoint()
+		this.firstIp= new InputPoint();
 	}
 	deactivate()
 	{
@@ -1424,10 +1552,161 @@ class MoveTool {
 	{}
 	suspend()
 	{}
-	onCancel()
-	{}
+	cancel()
+	{
+		this.firstIp.clear();
+		this.lineHelper.visible=false;
+	
+		if(this.tempAxis){
+			window.editor.model.entities.inferSet.remove(this.tempAxis)
+			this.tempAxis=null;
+		}
+
+		//Undo temporary moves
+		if(this.allVerts){
+			Object.values(this.allVerts).forEach(vert=>{
+				this.vertStartPos[vert.id]
+				vert.position.copy(this.vertStartPos[vert.id]);
+				vert.updateRenderObjects();
+			})
+		}
+		window.editor.view.render()
+
+	}
+	onMouseDown(event,position,view)
+	{
+		//console.log("onMouseDown:"+[event,position,view]) 
+	}
+	onKeyDown(event)
+	{
+		if(event.keyCode==16 && !event.repeat)
+			this.mouseIp.lockInfer();
+	}
+	onKeyUp(event)
+	{
+		if(event.keyCode==16)
+			this.mouseIp.unlockInfer();
+	}
+	onMouseUp(event,position,view)
+	{
+		console.log("LineTool.onMouseUp:"+event.button)
+
+		if(event.button==1)
+		{
+			return;//do nothing with middle mouse 
+		}
+
+		if(event.button==2)//right button=cancel
+			{
+				this.cancel();
+
+				return;
+			}
+		if(!this.firstIp.viewCursorValid){
+			this.firstIp.pick(view,position.x,position.y)
+			this.lineHelper.visible=true;
+			//console.log(position)
+			this.tempAxis=window.editor.model.entities.inferSet.addAxis(this.firstIp.viewCursor.position);
+
+			this.entities=Array.from(editor.view.selection.selected)
+			this.allVerts={}
+			this.entities.forEach(ent=>{
+				if(ent.type=="Edge")
+				{
+					this.allVerts[ent.start.id]=ent.start;
+					this.allVerts[ent.end.id]=ent.end;
+				}
+			})
+
+			this.vertStartPos={};
+			Object.values(this.allVerts).forEach(vert=>{
+				this.vertStartPos[vert.id]=vert.position.clone();
+				//vert.updateRenderObjects();
+			})
+
+
+			return;
+		}else
+		{
+			if(this.tempAxis){
+				window.editor.model.entities.inferSet.remove(this.tempAxis)
+				this.tempAxis=null;
+			}
+			this.mouseIp.pick(view,position.x,position.y)
+			if(this.mouseIp.viewCursorValid)
+			{
+				this.firstIp.clear();
+				console.log("LineTool.onMouseUp:RightButton")
+				this.lineHelper.visible=false;
+				
+				//Undo temporary moves
+				if(this.allVerts){
+					Object.values(this.allVerts).forEach(vert=>{
+						this.vertStartPos[vert.id]
+						vert.position.copy(this.vertStartPos[vert.id]);
+						vert.updateRenderObjects();
+					})
+				}
+
+				if(this.tempAxis){
+					window.editor.model.entities.inferSet.remove(this.tempAxis)
+					this.tempAxis=null;
+				}				
+				//Move
+				let vect=this.mouseIp.viewCursor.position.clone().sub(this.firstIp.viewCursor.position)
+				console.log("Move Vect:"+[vect])
+				let ents=Array.from(editor.view.selection.selected)
+				window.editor.execute( new MoveEntitesCommand(window.editor, ents, vect ) );		
+
+				//view.editor.model.entities.addEdge(this.firstIp.viewCursor.position.clone(),
+				//								   this.mouseIp.viewCursor.position.clone());
+
+
+			}
+
+		}
+
+		console.log(this.mouseIp.viewCursorInferString);
+		//console.log(this.mouseIp.viewCursor.position);
+		view.render();
+		//console.log("onMouseUp:"+[event,position,intersects.length])
+	}
 	onMouseMove(event,position,view)
 	{
+		//console.log("onMouseMove")
+		if(this.firstIp.viewCursorValid){
+			this.mouseIp.pick(view,position.x,position.y)
+			view.viewportInfo.setInferText(this.mouseIp.viewCursorInferString);
+
+			let vect=this.mouseIp.viewCursor.position.clone().sub(this.firstIp.viewCursor.position)
+			if(this.allVerts){
+				Object.values(this.allVerts).forEach(vert=>{
+					this.vertStartPos[vert.id]
+					vert.position.copy(this.vertStartPos[vert.id]);
+					vert.position.add(vect)
+					vert.updateRenderObjects();
+				})
+			}
+
+
+			this.lineHelper.geometry.attributes.position.array[0]=this.firstIp.viewCursor.position.x;
+			this.lineHelper.geometry.attributes.position.array[1]=this.firstIp.viewCursor.position.y;
+			this.lineHelper.geometry.attributes.position.array[2]=this.firstIp.viewCursor.position.z;
+			this.lineHelper.geometry.attributes.position.array[3]=this.mouseIp.viewCursor.position.x;
+			this.lineHelper.geometry.attributes.position.array[4]=this.mouseIp.viewCursor.position.y;
+			this.lineHelper.geometry.attributes.position.array[5]=this.mouseIp.viewCursor.position.z;
+			this.lineHelper.computeLineDistances()
+			this.lineHelper.geometry.attributes.position.needsUpdate=true;
+		}
+		//console.log("onMouseDown:"+[event,position,view]) 
+	}
+	render(renderer,camera)
+	{
+		if(this.lineHelper)
+			renderer.render( this.lineHelper, camera )
+		if(this.mouseIp && this.mouseIp.viewCursorValid)	
+			renderer.render( this.mouseIp.viewCursor, camera )		
+			
 	}	
 	onLbutton(){}
 	onSetCursor(){}
