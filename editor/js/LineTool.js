@@ -41,7 +41,7 @@ class Vertex extends Entity{
 	constructor(position) {
 		//use weakset?
 		super()//important
-		this.connections=new Set()//Entity ids
+		this.connectionIds=new Set()//Entity ids
 		this.position=position;
 		this.type="Vertex"
 		//console.log(["byId",Entity.byId])
@@ -49,16 +49,20 @@ class Vertex extends Entity{
 	connect(otherEntity)
 	{
 		//todo should only be edge?
-		this.connections.add(otherEntity);
+		//this.connections.add(otherEntity);
+		this.connectionIds.add(otherEntity.id);
 	}
 	disconnect(otherEntity)
 	{
 		//todo should only be edge?
-		this.connections.delete(otherEntity); 
+		this.connectionIds.delete(otherEntity.id); 
 	}
 	allEdges()
 	{
-		return Array.from(this.connections)
+		//let edges=[]
+		let edges=Array.from(this.connectionIds).map(v=>Entity.byId[v])
+
+		return edges
 
 	}
 	updateRenderObjects()
@@ -69,14 +73,14 @@ class Vertex extends Entity{
 	}	
 	toJSON()
 	{
-		let connectionIds=[]
-		this.connections.forEach((connection)=>{
-			connectionIds.push(connection.id)
-		})
+		// let connectionIds=[]
+		// this.connections.forEach((connection)=>{
+		// 	connectionIds.push(connection.id)
+		// })
 		let data={
 			id:this.id,
 			position:this.position,
-			connections:connectionIds
+			connectionIds:connectionIds
 		}	
 		return data;	
 	}
@@ -86,7 +90,7 @@ class Vertex extends Entity{
 			return Entity.byId[json.id]
 		else{
 			this.id=json.id;
-			this.position=
+			this.position= new Vector3(json.position.x,json.position.y,json.position.z);
 		}
 	}
 	copy(){	}
@@ -1364,12 +1368,14 @@ class LineTool {
 	activate()
 	{
 		console.log("LineTool.activate")
+		editor.view.container.dom.style.cursor="crosshair"
 		this.mouseIp=new InputPoint()
 		this.firstIp= new InputPoint();
 	}
 	deactivate()
 	{
 		console.log("LineTool.deactivate")
+		editor.view.container.dom.style.cursor="default"
 		//view.invalidate
 	}
 	onMouseDown(event,position,view)

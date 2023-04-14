@@ -79,6 +79,18 @@ class SelectTool {
                 this.dragStart = newPos.clone();
                 this.dragCurrent = newPos.clone();
                 this.mouseDown=true;
+  
+                //let rawX =  (event.clientX - editor.view.container.dom.offsetLeft)      - editor.view.container.dom.offsetWidth/2;
+                //let rawY = -(event.clientY - editor.view.container.dom.offsetTop + 0.5) + editor.view.container.dom.offsetHeight/2;
+                let rawX =  (event.clientX - editor.view.container.dom.offsetLeft)      - editor.view.container.dom.offsetWidth/2;
+                let rawY = -(event.clientY - editor.view.container.dom.offsetTop + 0.5) + editor.view.container.dom.offsetHeight/2;
+
+                 // update ribbon shape verts to match the mouse coordinates
+                this.rect.visible = true;
+                for (let i = 0; i < 8; i++) {
+                    this.rect.geometry.attributes.position.setXY(i, rawX,rawY);//wtf is the 1.2 needed for?
+                }
+                this.rect.geometry.attributes.position.needsUpdate=true;
                 //this.dragging=true;
                         // update frustum to the current mouse coordinates
                 updateFrustrum(view.camera, this.dragStart, this.dragCurrent, this.frustum);
@@ -98,6 +110,8 @@ class SelectTool {
         if(this.dragging)
         {
             this.dragging=false;
+            if(this.rect)
+                this.rect.visible=false;
             return;
         }
             
@@ -152,6 +166,22 @@ class SelectTool {
             newPos.x =  ((event.clientX - editor.view.container.dom.offsetLeft + 0.5) / editor.view.container.dom.offsetWidth)  * 2 - 1;
             newPos.y = -((event.clientY - editor.view.container.dom.offsetTop + 0.5)  / editor.view.container.dom.offsetHeight) * 2 + 1;
 
+            let rawX =  (event.clientX - editor.view.container.dom.offsetLeft)      - editor.view.container.dom.offsetWidth/2;
+            let rawY = -(event.clientY - editor.view.container.dom.offsetTop + 0.5) + editor.view.container.dom.offsetHeight/2;
+
+            this.rect.geometry.attributes.position.setY(1, rawY);
+            //this.rect.geometry.vertices[1].y = sender.rawCoords.y;
+  
+            this.rect.geometry.attributes.position.setXY(2, rawX,rawY);
+
+            //line.geometry.vertices[2].x = sender.rawCoords.x;
+            //line.geometry.vertices[2].y = sender.rawCoords.y;
+  
+            this.rect.geometry.attributes.position.setX(3, rawX);
+            //line.geometry.vertices[3].x = sender.rawCoords.x;
+            this.rect.geometry.attributes.position.needsUpdate=true;
+
+
             this.dragCurrent = newPos.clone();
             updateFrustrum(view.camera, this.dragStart, this.dragCurrent, this.frustum);
             //console.log([this.dragStart,this.dragCurrent])
@@ -172,6 +202,19 @@ class SelectTool {
 		if(true){
 			this.mouseIp.pick(view,position.x,position.y)
 			view.viewportInfo.setInferText(this.mouseIp.viewCursorInferString);
+            let unpos=this.mouseIp.viewCursor.position.project(view.camera);
+            unpos.x = (( unpos.x ) * editor.view.container.dom.offsetWidth / 2);
+            unpos.y = (( unpos.y ) * editor.view.container.dom.offsetHeight / 2);
+            unpos.z = 0;
+            if(this.dot)
+            {
+                this.dot.position.copy(unpos)
+                if(this.mouseIp.viewCursorInferString=="On Ground" || this.mouseIp.viewCursorInferString=="Nothing") 
+                    this.dot.visible=false;
+                else
+                    this.dot.visible=true;
+            }
+            //console.log(unpos)
 		}
 		//console.log("onMouseDown:"+[event,position,view]) 
 	}
@@ -179,8 +222,58 @@ class SelectTool {
 
 	onSetCursor(){}
 	draw(){}
+    setupRibbon()
+    {
+        // this camera is used to render selection ribbon
+        const ocamera = new THREE.OrthographicCamera(editor.view.container.dom.offsetWidth / -2, editor.view.container.dom.offsetWidth / 2, editor.view.container.dom.offsetHeight / 2, editor.view.container.dom.offsetHeight / -2, 0.1, 1000);
+        //editor.scene.add(ocamera);
+        
+        ocamera.position.x = 0;
+        ocamera.position.y = 0;
+        ocamera.position.z = 100; // this does not matter, just far away
+        
+        ocamera.lookAt(0, 0, 0);
+        // IMPORTANT, camera and ribbon are in layer#1,
+        // Here we render by layers, from two different cameras
+        //ocamera.layers.set(1);
+        
+        this.ocamera=ocamera;
+
+
+        // selection ribbon
+        var material = new THREE.LineBasicMaterial({
+            color: 0xbb0000
+        });
+        const verts=[]
+        const size=5;
+        verts.push(new THREE.Vector3(-size, -size, 0));
+        verts.push(new THREE.Vector3(-size, size, 0));
+        verts.push(new THREE.Vector3(size, size, 0));
+        verts.push(new THREE.Vector3(size, -size, 0));
+        verts.push(new THREE.Vector3(-size, -size, 0));
+
+		const geometry =new THREE.BufferGeometry().setFromPoints( verts );
+        var rect = new THREE.Line(geometry, material);
+        //rect.position.copy(new Vector3(20,20,0))
+        //rect.layers.set(1); // IMPORTANT, this goes to layer#1, everything else remains in layer#0 by default
+        rect.visible = false;        
+        this.rect=rect;
+
+        const dot = new THREE.Line(geometry.clone(), material);     
+        this.dot=dot;
+        this.dot.visible=true;
+    }
 	render(renderer,camera)
     {
+        if(!this.rect)
+            this.setupRibbon();
+
+        if(this.rect && this.rect.visible)
+            renderer.render(this.rect,this.ocamera);
+
+        if(this.dot && this.dot.visible)
+            renderer.render(this.dot,this.ocamera);
+            
         return;
 
 		this.helpers.forEach((ent)=>{
