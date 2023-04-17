@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Vector3 } from '../../src/math/Vector3.js';
-import { Model, Selection, LineTool, InputPoint, RemoveEdgeCommand } from './LineTool.js';
+import { Model, Selection, LineTool, InputPoint, RemoveEdgeCommand,RectHelper, ArrowHelper, Loop } from './LineTool.js';
 
 class SelectTool {
 
@@ -23,11 +23,11 @@ class SelectTool {
 	}
 	activate()
 	{
-		console.log("SelectTool.activate")
+		//console.log("SelectTool.activate")
 	}
 	deactivate()
 	{
-		console.log("SelectTool.deactivate")
+		//console.log("SelectTool.deactivate")
 	}
     onKeyDown(event)
 	{
@@ -55,9 +55,58 @@ class SelectTool {
 
 		//this.mouseIp.unlockInfer();
 	}
+
+    onDoubleClick(event,position,view)
+	{
+        if(event.button==1)
+            return;//ignore middle mouse
+            
+        
+        if(!event.shiftKey)
+            view.selection.clear();
+		
+        this.mouseIp.pick(view,position.x,position.y,false)
+		if(this.mouseIp.intersectingObjects.length>0)
+		{
+			let firstObject=this.mouseIp.intersectingObjects[0];
+			//console.log(firstObject)
+			if(firstObject.object.userData.edgeId)
+			{
+				let firstEdge= view.editor.model.entities.findEdge(firstObject.object.userData.edgeId)
+                if(firstEdge)
+                {    
+                    let loop=firstEdge.findLoop(new Vector3(0,-1,0),-1)
+                    let loop2=firstEdge.findLoop(new Vector3(0,1,0),1)
+                    if(loop.length)
+                    {
+                        let testLoop=new Loop(loop)
+                        if(!testLoop.isCw)
+                            for(var edge of loop)
+                                editor.view.selection.add(edge,editor.view.selection.redMaterial)
+
+                    } 
+                    if (loop2.length)
+                    {
+                        let testLoop=new Loop(loop2)
+                        if(!testLoop.isCw)
+                            for(var edge of loop2)
+                                editor.view.selection.add(edge,editor.view.selection.yellowMaterial)
+
+                    }
+                }
+			}else{
+				//view.signals.intersectionsDetected.dispatch( intersects );
+			}
+		}else{
+			if(!event.shiftKey)
+				view.selection.clear();
+		}
+
+		view.render();
+	}
 	onMouseDown(event,position,view)
 	{
-		console.log("onMouseDown:"+[event,position,view]) 
+		//console.log("onMouseDown:"+[event,position,view]) 
         //         // make selection ribbon visible
         // line.visible = true;
     
@@ -115,11 +164,11 @@ class SelectTool {
             return;
         }
             
-		this.mouseIp.pick(view,position.x,position.y)
+		this.mouseIp.pick(view,position.x,position.y,false)
 		if(this.mouseIp.intersectingObjects.length>0)
 		{
 			let firstObject=this.mouseIp.intersectingObjects[0];
-			console.log(firstObject)
+			//console.log(firstObject)
 			if(firstObject.object.userData.edgeId)
 			{
 				let edge= view.editor.model.entities.findEdge(firstObject.object.userData.edgeId)
@@ -200,20 +249,55 @@ class SelectTool {
            
         }
 		if(true){
-			this.mouseIp.pick(view,position.x,position.y)
+			this.mouseIp.pick(view,position.x,position.y,false)
 			view.viewportInfo.setInferText(this.mouseIp.viewCursorInferString);
-            let unpos=this.mouseIp.viewCursor.position.project(view.camera);
-            unpos.x = (( unpos.x ) * editor.view.container.dom.offsetWidth / 2);
-            unpos.y = (( unpos.y ) * editor.view.container.dom.offsetHeight / 2);
-            unpos.z = 0;
+            
             if(this.dot)
             {
+                let unpos=this.mouseIp.viewCursor.position.clone().project(view.camera);
+                unpos.x = (( unpos.x ) * editor.view.container.dom.offsetWidth / 2);
+                unpos.y = (( unpos.y ) * editor.view.container.dom.offsetHeight / 2);
+                unpos.z = 0;
+
                 this.dot.position.copy(unpos)
                 if(this.mouseIp.viewCursorInferString=="On Ground" || this.mouseIp.viewCursorInferString=="Nothing") 
                     this.dot.visible=false;
                 else
                     this.dot.visible=true;
+    
             }
+
+            if(this.arrow)
+                this.arrow.visible=false;
+            if(this.mouseIp.intersectingObjects.length>0)
+            {
+                let firstObject=this.mouseIp.intersectingObjects[0];
+                if(firstObject.object.userData.edgeId)
+                {
+                    let edge= view.editor.model.entities.findEdge(firstObject.object.userData.edgeId)
+                    if(edge)
+                    {   
+
+                        let vect=edge.end.position.clone().sub(edge.start.position).multiplyScalar(0.5);
+                        let midPoint=edge.start.position.clone().add(vect)
+                        this.arrow.position.copy(midPoint) 
+                        this.arrow.lookAt(edge.end.position)
+
+                        let unpos=edge.start.position.clone().project(view.camera);
+                        unpos.x = (( unpos.x ) * editor.view.container.dom.offsetWidth / 2);
+                        unpos.y = (( unpos.y ) * editor.view.container.dom.offsetHeight / 2);
+                        unpos.z = 0;
+         
+                        //this.arrow.position.copy(unpos)
+                        this.arrow.visible=true;
+
+                    }
+                }else{
+                    //view.signals.intersectionsDetected.dispatch( intersects );
+                }
+            }
+
+            
             //console.log(unpos)
 		}
 		//console.log("onMouseDown:"+[event,position,view]) 
@@ -224,44 +308,35 @@ class SelectTool {
 	draw(){}
     setupRibbon()
     {
-        // this camera is used to render selection ribbon
-        const ocamera = new THREE.OrthographicCamera(editor.view.container.dom.offsetWidth / -2, editor.view.container.dom.offsetWidth / 2, editor.view.container.dom.offsetHeight / 2, editor.view.container.dom.offsetHeight / -2, 0.1, 1000);
-        //editor.scene.add(ocamera);
+        // // this camera is used to render selection ribbon
+        // const ocamera = new THREE.OrthographicCamera(editor.view.container.dom.offsetWidth / -2, editor.view.container.dom.offsetWidth / 2, editor.view.container.dom.offsetHeight / 2, editor.view.container.dom.offsetHeight / -2, 0.1, 1000);
+        // //editor.scene.add(ocamera);
         
-        ocamera.position.x = 0;
-        ocamera.position.y = 0;
-        ocamera.position.z = 100; // this does not matter, just far away
+        // ocamera.position.x = 0;
+        // ocamera.position.y = 0;
+        // ocamera.position.z = 100; // this does not matter, just far away
         
-        ocamera.lookAt(0, 0, 0);
-        // IMPORTANT, camera and ribbon are in layer#1,
-        // Here we render by layers, from two different cameras
-        //ocamera.layers.set(1);
+        // ocamera.lookAt(0, 0, 0);
+        // // IMPORTANT, camera and ribbon are in layer#1,
+        // // Here we render by layers, from two different cameras
+        // //ocamera.layers.set(1);
         
-        this.ocamera=ocamera;
+        // this.ocamera=ocamera;
 
 
-        // selection ribbon
-        var material = new THREE.LineBasicMaterial({
-            color: 0xbb0000
-        });
-        const verts=[]
-        const size=5;
-        verts.push(new THREE.Vector3(-size, -size, 0));
-        verts.push(new THREE.Vector3(-size, size, 0));
-        verts.push(new THREE.Vector3(size, size, 0));
-        verts.push(new THREE.Vector3(size, -size, 0));
-        verts.push(new THREE.Vector3(-size, -size, 0));
-
-		const geometry =new THREE.BufferGeometry().setFromPoints( verts );
-        var rect = new THREE.Line(geometry, material);
+        let rect=new RectHelper(5)
         //rect.position.copy(new Vector3(20,20,0))
         //rect.layers.set(1); // IMPORTANT, this goes to layer#1, everything else remains in layer#0 by default
         rect.visible = false;        
         this.rect=rect;
 
-        const dot = new THREE.Line(geometry.clone(), material);     
+        const dot = new RectHelper(5)     
         this.dot=dot;
         this.dot.visible=true;
+
+        const arrow = new ArrowHelper(0.2)     
+        this.arrow=arrow;
+        this.arrow.visible=true;        
     }
 	render(renderer,camera)
     {
@@ -269,10 +344,16 @@ class SelectTool {
             this.setupRibbon();
 
         if(this.rect && this.rect.visible)
-            renderer.render(this.rect,this.ocamera);
+            renderer.render(this.rect,editor.view.uiCamera);
 
         if(this.dot && this.dot.visible)
-            renderer.render(this.dot,this.ocamera);
+            renderer.render(this.dot,editor.view.uiCamera);
+
+        if(this.arrow && this.arrow.visible)
+            renderer.render(this.arrow,camera);            
+
+        if(this.mouseIp.lastInferObject)
+			renderer.render( this.mouseIp.lastInferObject, camera )            
             
         return;
 
@@ -303,6 +384,8 @@ class SelectTool {
 	}
 
 }
+
+
   // this is the core of the solution,
   // it builds the Frustum object by given camera and mouse coordinates
   function updateFrustrum(camera, mousePos0, mousePos1, frustum) {

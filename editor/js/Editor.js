@@ -139,6 +139,7 @@ function Editor() {
 
 	const model=new Model()
 	this.model=model;
+	//this.scene.add(model)
 
 	//this.toolManager=new ToolManager(this);
 

@@ -21,43 +21,14 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 import { AddObjectCommand } from './commands/AddObjectCommand.js';
 
-import { Line2 } from '/examples/jsm/lines/Line2.js';
-import { LineMaterial } from '/examples/jsm/lines/LineMaterial.js';
-import { LineGeometry } from '/examples/jsm/lines/LineGeometry.js';
+import { Line2 } from '../../examples/jsm/lines/Line2.js';
+import { LineMaterial } from '../../examples/jsm/lines/LineMaterial.js';
+import { LineGeometry } from '../../examples/jsm/lines/LineGeometry.js';
 import { Model, Selection, LineTool, MoveTool } from './LineTool.js';
 import { SelectTool } from './SelectTool.js';
 import CameraControls from './camera-controls.module.js';
 
 
-
-function xInferAxesHelper( size ) {
-
-	size = size || 1;
-
-	var vertices = [
-		-size, 0, 0,	size, 0, 0,
-		0,-size, 0,	0, size, 0,
-		0, 0,-size,	0, 0, size
-	];
-
-	var colors = [
-		1, 0, 0,	1, 0.6, 0,
-		0, 1, 0,	0.6, 1, 0,
-		0, 0, 1,	0, 0.6, 1
-	];
-
-	var geometry = new THREE.BufferGeometry();
-	geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
-	geometry.setAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
-
-	var material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors } );
-	material.visible=false;
-	
-	//super( geometry, material );
-
-	//THREE.LineSegments.call( this, geometry, material );
-
-}
 
 
 function toColorArray( colors ) {
@@ -241,49 +212,6 @@ function buildBackground() {
 }
 
 
-// InferAxesHelper.prototype = Object.create( THREE.LineSegments.prototype );
-// InferAxesHelper.prototype.constructor = InferAxesHelper;
-
-class InferAxesHelper extends THREE.LineSegments {
-
-	constructor( size = 1 ) {
-
-		size = size || 1;
-
-		var vertices = [
-			-size, 0, 0,	size, 0, 0,
-			0,-size, 0,	0, size, 0,
-			0, 0,-size,	0, 0, size
-		];
-	
-		var colors = [
-			1, 0.6, 0,	1, 0.6, 0,
-			0.6, 1, 0,	0.6, 1, 0,
-			0, 0.6, 1,	0, 0.6, 1
-		];
-	
-		var geometry = new THREE.BufferGeometry();
-		geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
-		geometry.setAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
-	
-		console.log({ vertexColors: THREE.VertexColors } )
-		var material = new THREE.LineBasicMaterial( { vertexColors: true, toneMapped: false }  );
-		material.visible=false;
-		
-		super( geometry, material );
-
-		this.type = 'InferAxesHelper';
-
-	}
-
-	dispose() {
-
-		this.geometry.dispose();
-		this.material.dispose();
-
-	}
-
-}
 
 function Viewport( editor ) {
 
@@ -311,15 +239,7 @@ function Viewport( editor ) {
 
 	//
 
-	var lastInferAxes = []
-	function addInferAxes(position)
-	{
-		lastInferAxes = []
-		var a = new InferAxesHelper( 100 );
-		a.position.copy(position);
-		sceneHelpers.add( a );
-		lastInferAxes.push(a);
-	}
+
 
 	var viewCursor = null;
 	var viewCursorValid = false;
@@ -333,6 +253,14 @@ function Viewport( editor ) {
 
 	const camera = editor.camera;
 	this.camera = camera;
+
+		//Camera for drawing in screen space
+	this.uiCamera = new THREE.OrthographicCamera(this.container.dom.offsetWidth / -2, this.container.dom.offsetWidth / 2, 
+			this.container.dom.offsetHeight / 2, this.container.dom.offsetHeight / -2, 0.1, 1000);
+	this.uiCamera.position.x = 0;
+	this.uiCamera.position.y = 0;
+	this.uiCamera.position.z = 100; 
+	this.uiCamera.lookAt(0, 0, 0);
 	
 	const scene = editor.scene;
 	this.scene = scene;
@@ -371,22 +299,12 @@ function Viewport( editor ) {
 
 	grid.visible=true;
 
-	var sceneAxis = new THREE.AxesHelper( 100 )
-	sceneAxis.visible=true;
-	sceneHelpers.add( sceneAxis );
-	sceneAxis = new THREE.AxesHelper( -100 )
-	sceneAxis.visible=true;
-	sceneHelpers.add( sceneAxis );
+
 
 
 	const viewHelper = new ViewHelper( camera, container );
 	const vr = new VR( editor );
 
-	///////////////////////////////////////////
-	var debugAxis = new THREE.AxesHelper( 1.1 )
-	sceneHelpers.add( debugAxis );
-
-	viewCursor = debugAxis
 
 
 	var geometry = new THREE.BufferGeometry ();
@@ -553,6 +471,14 @@ function Viewport( editor ) {
 		camera.aspect = container.dom.offsetWidth / container.dom.offsetHeight;
 		camera.updateProjectionMatrix();
 
+		//todo. this should be cleaned up with where it is created.
+		editor.view.uiCamera = new THREE.OrthographicCamera(editor.view.container.dom.offsetWidth / -2, editor.view.container.dom.offsetWidth / 2, 
+			editor.view.container.dom.offsetHeight / 2, editor.view.container.dom.offsetHeight / -2, 0.1, 1000);
+		editor.view.uiCamera.position.x = 0;
+		editor.view.uiCamera.position.y = 0;
+		editor.view.uiCamera.position.z = 100; 
+		editor.view.uiCamera.lookAt(0, 0, 0);
+
 	}
 
 	function getIntersects( point ) {
@@ -593,6 +519,7 @@ function Viewport( editor ) {
 	}
 
 	function handleClick() {
+		alert("Should Not Be Here")
 //console.log("here")
 		if ( onDownPosition.distanceTo( onUpPosition ) === 0 ) {
 //console.log("there")
@@ -898,6 +825,13 @@ function Viewport( editor ) {
 		const array = getMousePosition( container.dom, event.clientX, event.clientY );
 		onDoubleClickPosition.fromArray( array );
 
+		if(editor.activeTool && editor.activeTool.onDoubleClick)
+		{
+			editor.activeTool.onDoubleClick(event,onDoubleClickPosition,view)
+			return;
+		}
+
+
 		const intersects = getIntersects( onDoubleClickPosition );
 
 		if ( intersects.length > 0 ) {
@@ -943,7 +877,7 @@ function Viewport( editor ) {
 		}else if(event.keyCode==32)
 		{
 			editor.setTool(new SelectTool());
-		}else if(event.keyCode==76 || event.keyCode==68) //L or D
+		}else if(event.keyCode==76 || event.keyCode==83) //L or D
 		{
 			editor.setTool(new LineTool());
 		}else if(event.keyCode==77) //L or D
