@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Vector3 } from '../../src/math/Vector3.js';
-import { Model, Selection, LineTool, InputPoint, RemoveEdgeCommand,RectHelper, ArrowHelper, Loop } from './LineTool.js';
+import { Model, Selection, LineTool, InputPoint, RemoveEdgeCommand,RectHelper, ArrowHelper, Loop, Face } from './LineTool.js';
 
 class SelectTool {
 
@@ -38,7 +38,15 @@ class SelectTool {
                     {
                         editor.view.selection.remove(ent)
                         window.editor.execute( new RemoveEdgeCommand(window.editor, ent ) );	
+                        editor.view.render();
                     }
+                if(ent.type=="Face")
+                    {
+                        editor.view.selection.remove(ent)
+                        editor.model.entities.removeEntity(ent);
+                        editor.view.render();
+                        //window.editor.execute( new RemoveEdgeCommand(window.editor, ent ) );	
+                    }                    
             })
         }
         if(event.keyCode==67 && event.ctrlKey){
@@ -81,17 +89,18 @@ class SelectTool {
                     {
                         let testLoop=new Loop(loop)
                         if(!testLoop.isCw)
+                        {
                             for(var edge of loop)
                                 editor.view.selection.add(edge,editor.view.selection.redMaterial)
-
+                        }
                     } 
                     if (loop2.length)
                     {
                         let testLoop=new Loop(loop2)
-                        if(!testLoop.isCw)
+                        if(!testLoop.isCw){
                             for(var edge of loop2)
                                 editor.view.selection.add(edge,editor.view.selection.yellowMaterial)
-
+                        }
                     }
                 }
 			}else{
@@ -178,6 +187,16 @@ class SelectTool {
 					view.selection.clear();
 					view.selection.toggle(edge)
 				}
+			}else if(firstObject.object.userData.faceId)
+			{
+				let face= Face.byId[firstObject.object.userData.faceId]
+                if(face)
+                    if(event.shiftKey)
+                        view.selection.toggle(face)
+                    else{
+                        view.selection.clear();
+                        view.selection.toggle(face)
+                    }
 			}else{
 				//view.signals.intersectionsDetected.dispatch( intersects );
 			}

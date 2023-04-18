@@ -446,6 +446,7 @@ class Entities{
 	constructor()
 	{
 		this.edges={};
+		this.faces={};
 		this.edgesList=new EdgeList(1000);
 		// this.edgesList.add(new Vector3(),new Vector3(0,1,1));
 		// this.edgesList.add(new Vector3(),new Vector3(2,-1,0));
@@ -485,16 +486,21 @@ class Entities{
 
 		yellowEdgeMaterial.resolution.set(editor.view.container.dom.offsetWidth, editor.view.container.dom.offsetHeight);	
 	
-		//TODO: Find a better place for this!
+
+	  	Object.values(this.faces).forEach(faces => {
+			if(faces && faces.renderObject)
+			{
+				renderer.render(faces.renderObject, camera )
+			}
+		  })
+
 
 		Object.values(this.edges).forEach(edge => {
 			if(edge && edge.renderObject)
 			{
 				renderer.render(edge.renderObject, camera )
 			}
-		  })
-
-
+		  })		  
 		//this.inferHelpers.render(renderer,camera);
 		
 		this.inferSet.render(renderer,camera);
@@ -517,6 +523,27 @@ class Entities{
 		}
 	}
 
+	removeEntity(ent)
+	{
+		switch(ent.type)
+		{
+			case "Face":
+				if(ent.delete)
+					ent.delete()
+
+				this.faces[ent.id]=null;
+				break;
+			case "Edge":
+				this.removeEdge(ent.id)//todo. get rid of removeEdge
+				break;
+				
+		}
+	}
+	addFace(loop)
+	{
+		const newFace = new Face(loop);
+		this.faces[newFace.id]=newFace;
+	}
 	//todo: undo/redo. Cases add/remove edge, split edge, move verts (and/or edge?)
 	addEdge(startPos,endPos){
 
@@ -572,26 +599,6 @@ class Entities{
 					if(rayDist-0.00001>=newEdgeDist)//past end of new seg?
 						continue;
 
-					//cases 
-					//newEdge.start == intersect.start || newEdge.start == intersect.end //newSeg starts on one end of intersecting edge
-					//newEdge.end == intersect.start || newEdge.start == intersect.end //newSeg ends on one end of intersecting edge
-					
-					//newEdge starts/ends in middle of intersectEdge
-					//newEdge and intersection edge T. split newEdge with one end of edge
-
-					//newEdge and intersection edge cross. newEdge split with newVert from Split Edge
-
-					//find all intersections.
-						//split and add spit vert to list. not split may be start or end and not new. 
-						//Maybe duplicate of id, but no dupes of pos
-					//sort in dist order from startPos
-					//if first != startPos
-					//prepend new Vertex(startPos)
-					//if last != endPos
-					//push new Vertex(startPos)
-					
-					//make new Edges from list.
-
 					allIntersect.push([rayDist,edge,a.clone(),b.clone()])
 					// if(rayDist<0.00001){
 					// 	console.log("Cross At startPoint:"+[a,b])
@@ -606,26 +613,12 @@ class Entities{
 					// }
 					//console.log("Intersect:"+[intersect,a,b])
 				}
-				//console.log();
 			}
 		}
 		let newVerts=[]
 		let sorted=allIntersect.sort((a, b) => { return a[0]-b[0] } )
-		
-		//let newEdges=[new Vertex(startPos)]
-		//build new verts/edges from intersection points
-		//store newVertex in intersects?
-		//todo check for degenerage cases
 
-		//foreach intersect
-		//intersectEdge.split(intersectNewVertex)//in theory returns new edge/vertex. do we need?
-
-		if(sorted.length)
-		{
-			//console.log( startPos.distanceTo(sorted[0][2]))
-			//console.log( startPos.distanceTo(sorted[0][2])<0.00001)
-			//console.log(sorted.length==0 || startPos.distanceTo(sorted[0][2])<0.00001 )
-		}
+		//split all crossing lines
 		let splitVerts={}
 		sorted.forEach((intersect)=>{
 			let edge=intersect[1]
@@ -654,6 +647,8 @@ class Entities{
 			//newVerts.push(edge.end)
 			
 		});
+
+		//make sure start and end are in sorted vert list
 		let sortedVerts=Object.values(splitVerts).sort((a, b) => { return a.position.distanceTo(startPos)-b.position.distanceTo(startPos) } )
 		if(sortedVerts.length==0 || sortedVerts[0].position.distanceTo(startPos)>0.00001 )
 		{
@@ -671,12 +666,33 @@ class Entities{
 			{
 				let newEdge = new Edge(sortedVerts[i],sortedVerts[i+1])
 
-				window.editor.execute( new AddEdgeCommand(window.editor, newEdge ) );		
+				//if newedge crosses face then remove
+
+				window.editor.execute( new AddEdgeCommand(window.editor, newEdge ) );	
+
+				let loop=newEdge.findLoop(new Vector3(0,-1,0),1)
+				if(loop.length)
+				{
+					let testLoop=new Loop(loop)
+					if(testLoop.isCw)
+					{
+						editor.model.entities.addFace(testLoop)
+					}
+				} 
+				let loop2=newEdge.findLoop(new Vector3(0,1,0),-1)
+				if (loop2.length)
+				{
+					let testLoop=new Loop(loop2)
+					if(testLoop.isCw){
+						editor.model.entities.addFace(testLoop)
+					}
+				}
+				
 				this.test();
 			}else{
 				console.log("Edge already exists!");
 			}
-
+			
 		}
 
 
@@ -838,10 +854,13 @@ class EdgeList{
 	
 }
 
-class Loop
+class Loop extends Entity
 {
+	static byId={}
 	constructor(edges)
 	{
+		super()
+
 		let verts=[]
 		let firstEdge=edges[0]
 		let firstNode=firstEdge.start;
@@ -891,18 +910,47 @@ class Loop
 		this.isCw=isCw;
 		console.log(["loop isClockWise:",isCw])
 
-
+		for(var edge of edges)
+		{
+			edge.addLoopRef(this)
+		}
 		this.edges=edges;
+		this.type="Loop"
+		Loop.byId[this.id]=this;
+
+	}
+	delete()
+	{
+		//foreach edge in loop
+		//edge.removeLoopRef
+		//clear Loop.byId
+		if(this.deleted)
+			return;
+		
+		for(var edge of this.edges)
+		{
+			edge.removeLoopRef(this)
+		}
+		Loop.byId[this.id]=null
+		this.deleted=true;
+
 	}
 }
 
 class Face extends Entity{
 	//vertices=[ new THREE.Vertex(), new THREE.Vertex()];
 	static byId={};
+	static normalMaterial = new THREE.MeshBasicMaterial( { 
+		color: 0xaaaaaa,
+		side: THREE.DoubleSide 
+	} );
+	static selectedMaterial = new THREE.MeshBasicMaterial( { 
+		color: 0xaaaaff,
+		side: THREE.DoubleSide 
+	} );
 	constructor(loop) {
 
 		super()
-
 		this.type="Face"
 		this.loop=loop;
 
@@ -914,80 +962,58 @@ class Face extends Entity{
 	createRenderObject()
 	{
 		let verts=[]
-		let firstEdge=loop[0]
-		let firstNode=firstEdge.start;
 
-		let nextEdge=loop[1]
-		let nextNode=firstEdge.end
-		if(nextEdge.otherVertex(nextNode)==null)
-		{	
-			nextNode=firstEdge.start
-			firstNode=firstEdge.end
-			if(nextEdge.otherVertex(nextNode)==null)
-				alert("shouldn't happen")
-
+		for(var vert of this.loop.verts){
+			verts.push(new THREE.Vector2(vert.position.x,vert.position.z))
 		}
-		li=2;
-		while(li<this.loop.length)
-		{	
-			nextEdge=[li++]
-			nextNode=nextEdge.otherVertex(nextNode)
-			assert(nextNode!=null)
-			if(nextNode==firstNode)
-			{
-				//done
-			}
-		}
-		verts.push(firstEdge.start.position)
-		verts.push(firstEdge.end.position)
-		curEndNode=firstEdge.end;
-		nextEdge=loop[1]
-		newEndNode=nextEdge.otherVertex(curEndNode)
-		verts.push()
-		for(var edge of this.loop){
-			verts.push(new Vector(edge.start.position.x,edge.start.position.z))
-			verts.push(new Vector(edge.end.position.x,edge.end.position.z))
-			verts.push(edge.end.position)
-		}
-		
-		const edgeVerts= [
-			this.start.position.x,this.start.position.y,this.start.position.z,
-			this.end.position.x,this.end.position.y,this.end.position.z
-		];
-		const edgeGeometry = new LineGeometry();
-		edgeGeometry.setPositions( edgeVerts );
-		let clr=[0,0,128,0,0,128]
-		let lineWidths=[1]
-		edgeGeometry.setColors( clr );
-		edgeGeometry.setAttribute("linewidth", new THREE.InstancedBufferAttribute(new Float32Array(lineWidths), 1));
 
-		edgeGeometry.needsUpdate=true;
+		const shape= new THREE.Shape(verts)
+		const geometry = new THREE.ShapeGeometry( shape );
 
-		var edge = new Line2( edgeGeometry,  edgeMaterial );
-		edge.computeLineDistances();
-		edge.scale.set( 1, 1, 1 );
-		edge.name="Edge";
-		edge.userData.edgeId=this.id
-		this.renderObject=edge;
+		const face = new THREE.Mesh( geometry, Face.normalMaterial ) ;
+		face.lookAt(new THREE.Vector3(0,-1,0))
+
+		//face.computeLineDistances();
+		face.name="Face";
+		face.userData.faceId=this.id
+		this.renderObject=face;
 	}
 	updateRenderObject()
 	{
 		if(this.renderObject && this.renderObject.geometry)
 		{
-			this.renderObject.geometry.attributes.instanceStart.array[0]=this.start.position.x;
-			this.renderObject.geometry.attributes.instanceStart.array[1]=this.start.position.y;
-			this.renderObject.geometry.attributes.instanceStart.array[2]=this.start.position.z;
-
-			this.renderObject.geometry.attributes.instanceStart.array[3]=this.end.position.x;
-			this.renderObject.geometry.attributes.instanceStart.array[4]=this.end.position.y;
-			this.renderObject.geometry.attributes.instanceStart.array[5]=this.end.position.z;
-			this.renderObject.geometry.needsUpdate=true;
-			this.renderObject.geometry.attributes.instanceStart.needsUpdate=true;
-			this.renderObject.geometry.attributes.instanceEnd.needsUpdate=true;
-			this.renderObject.geometry.computeBoundingBox();
+			// this.renderObject.geometry.attributes.instanceStart.array[0]=this.start.position.x;
+			// this.renderObject.geometry.needsUpdate=true;
+			// this.renderObject.geometry.attributes.instanceStart.needsUpdate=true;
+			// this.renderObject.geometry.computeBoundingBox();
 			
 		}
 	}
+	doSelect(material)
+	{
+		if(this.renderObject)
+			if(material)
+				this.renderObject.material=material;
+			else
+				this.renderObject.material=Face.selectedMaterial;
+	}
+	doUnselect()
+	{
+		if(this.renderObject)
+			this.renderObject.material=Face.normalMaterial;
+	}
+	delete()
+	{
+		if(this.deleted)
+			return;
+		
+		if(this.loop)
+			this.loop.delete()//removes edge refs 
+		
+		Face.byId[this.id]=null
+		this.deleted=true;
+		//todo remove geometry
+	}	
 	toJSON(){
 		let data={
 			type:this.type,
@@ -1041,9 +1067,15 @@ class Edge extends Entity{
 		vertex1.connect(this)
 		vertex2.connect(this)
 		Edge.byId[this.id]=this;
-
+		this.loopRefs={};
 		this.createRenderObject();
 
+	}
+	addLoopRef(edge){
+		this.loopRefs[edge.id]=edge;
+	}
+	removeLoopRef(edge){
+		this.loopRefs[edge.id]=null;
 	}
 	createRenderObject()
 	{
@@ -1202,7 +1234,7 @@ class Edge extends Entity{
 		let firstEdge=this;
 
 		//editor.view.selection.clear()
-		editor.view.selection.add(firstEdge,redEdgeMaterial)
+		//editor.view.selection.add(firstEdge,redEdgeMaterial)
 
 		//firstPlane=[Geom::Point3d.new(0,0,0),Geom::Vector3d.new(0,0,-1)]
 		if(planeDir==null)
@@ -1383,6 +1415,12 @@ class InputPoint{
 				objects.push( edge.renderObject );
 			}
 		  })
+		  Object.values(view.model.entities.faces).forEach(ent => {
+			if(ent && ent.renderObject)
+			{
+				objects.push( ent.renderObject );
+			}
+		  })		  
 
 		this.mouse.set( ( this.inPos.x * 2 ) - 1, - ( this.inPos.y * 2 ) + 1 );
 		this.raycaster.setFromCamera( this.mouse, view.camera );
@@ -1453,6 +1491,20 @@ class InputPoint{
 							this.viewCursorValid=true;							
 						}						
 					}
+				}
+				else if(intersect.object.name=="Face")
+				{
+
+					this.viewCursorInferString="On Face";
+					this.viewCursor.position.copy( intersect.point );
+					this.viewCursorValid=true;
+					//screen dist to edge.
+					//var screenDist = curPos.distanceTo( intersect.point.clone().project(view.camera));
+					
+					//if(screenDist<curDist)//closer previous edges.
+					//{
+					//	curDist=screenDist;
+					//}
 				}
 				else{
 					this.viewCursorInferString="On Object "+intersect.object.name;		
@@ -2396,4 +2448,4 @@ function isPointOnLineAndBetweenPoints (pointA, pointB, pointToCheck) {
     return pointA.distanceTo(pointToCheck) < d && pointB.distanceTo(pointToCheck) < d;
 }
 
-export { LineTool,MoveTool,SelectTool,Entities,Selection, Model, InputPoint, RemoveEdgeCommand,RectHelper,ArrowHelper, Loop };
+export { LineTool,MoveTool,SelectTool,Entities,Selection, Model, InputPoint, RemoveEdgeCommand,RectHelper,ArrowHelper, Loop, Face };
