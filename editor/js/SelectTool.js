@@ -76,6 +76,7 @@ class SelectTool {
         this.mouseIp.pick(view,position.x,position.y,false)
 		if(this.mouseIp.intersectingObjects.length>0)
 		{
+            console.log("here")
 			let firstObject=this.mouseIp.intersectingObjects[0];
 			//console.log(firstObject)
 			if(firstObject.object.userData.edgeId)
@@ -83,24 +84,20 @@ class SelectTool {
 				let firstEdge= view.editor.model.entities.findEdge(firstObject.object.userData.edgeId)
                 if(firstEdge)
                 {    
-                    let loop=firstEdge.findLoop(new Vector3(0,-1,0),-1)
-                    let loop2=firstEdge.findLoop(new Vector3(0,1,0),1)
-                    if(loop.length)
+                    let loops=Loop.findAllLoops(firstEdge)
+                    for(var loop of loops)
                     {
-                        let testLoop=new Loop(loop)
-                        if(!testLoop.isCw)
+                        let mat =editor.view.selection.yellowMaterial;
+                        if(loop.classify())
+                            mat=editor.view.selection.redMaterial
+                        for(var edge of loop.edges)
                         {
-                            for(var edge of loop)
-                                editor.view.selection.add(edge,editor.view.selection.redMaterial)
+                            if(loop.isLeft)
+                                editor.view.selection.add(edge,mat)
+                            else
+                                editor.view.selection.add(edge,mat)
                         }
-                    } 
-                    if (loop2.length)
-                    {
-                        let testLoop=new Loop(loop2)
-                        if(!testLoop.isCw){
-                            for(var edge of loop2)
-                                editor.view.selection.add(edge,editor.view.selection.yellowMaterial)
-                        }
+                        
                     }
                 }
 			}else{
@@ -309,6 +306,9 @@ class SelectTool {
          
                         //this.arrow.position.copy(unpos)
                         this.arrow.visible=true;
+
+                        if(edge.loopRefs)
+                            view.viewportInfo.setInferText(this.mouseIp.viewCursorInferString+" Loops("+Object.keys(edge.loopRefs).length+")");
 
                     }
                 }else{

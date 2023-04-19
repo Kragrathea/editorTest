@@ -670,23 +670,29 @@ class Entities{
 
 				window.editor.execute( new AddEdgeCommand(window.editor, newEdge ) );	
 
-				let loop=newEdge.findLoop(new Vector3(0,-1,0),1)
-				if(loop.length)
+				let loops=Loop.findAllLoops(newEdge)
+				for(var loop of loops)
 				{
-					let testLoop=new Loop(loop)
-					if(testLoop.isCw)
-					{
-						editor.model.entities.addFace(testLoop)
-					}
-				} 
-				let loop2=newEdge.findLoop(new Vector3(0,1,0),-1)
-				if (loop2.length)
-				{
-					let testLoop=new Loop(loop2)
-					if(testLoop.isCw){
-						editor.model.entities.addFace(testLoop)
-					}
+					editor.model.entities.addFace(loop)
+
 				}
+				// let loop=Loop.findLoop(newEdge,new Vector3(0,-1,0),1)
+				// if(loop.length)
+				// {
+				// 	let testLoop=new Loop(loop)
+				// 	if(testLoop.isCw)
+				// 	{
+				// 		editor.model.entities.addFace(testLoop)
+				// 	}
+				// } 
+				// let loop2=Loop.findLoop(newEdge,new Vector3(0,1,0),-1)
+				// if (loop2.length)
+				// {
+				// 	let testLoop=new Loop(loop2)
+				// 	if(testLoop.isCw){
+				// 		editor.model.entities.addFace(testLoop)
+				// 	}
+				// }
 				
 				this.test();
 			}else{
@@ -908,22 +914,23 @@ class Loop extends Entity
 		let points =this.verts.map(v=>new THREE.Vector2(v.position.x,v.position.z));
 		let isCw=ShapeUtils.isClockWise(points);
 		this.isCw=isCw;
-		console.log(["loop isClockWise:",isCw])
+		//console.log(["loop isClockWise:",isCw])
 
-		for(var edge of edges)
-		{
-			edge.addLoopRef(this)
-		}
 		this.edges=edges;
 		this.type="Loop"
 		Loop.byId[this.id]=this;
 
 	}
+	make(face)
+	{
+		this.face=face;
+		for(var edge of this.edges)
+		{
+			edge.addLoopRef(this)
+		}
+	}
 	delete()
 	{
-		//foreach edge in loop
-		//edge.removeLoopRef
-		//clear Loop.byId
 		if(this.deleted)
 			return;
 		
@@ -935,24 +942,272 @@ class Loop extends Entity
 		this.deleted=true;
 
 	}
+	findExistingLoop()
+	{
+		let aLoopRefs=Object.values(this.edges[0].loopRefs); 
+		let bLoopRefs=Object.values(this.edges[1].loopRefs); 
+
+		let intersection = aLoopRefs.filter(x =>x!=null&& bLoopRefs.includes(x));
+		if(intersection.length>2)
+			alert("classify error")
+
+		if(intersection.length==1)
+			return intersection[0]
+		else
+			return null;		
+	}
+	classify()
+	{
+		//foreach edge
+		//if edge has no loopRefs then not part
+		//if edge has loop ref && loop normal same as this norma
+		//possible.push
+		
+		//both partner edges (first and last) must be part of same face.
+		let aLoopRefs=Object.values(this.edges[0].loopRefs); 
+		let bLoopRefs=Object.values(this.edges[1].loopRefs); 
+
+		let intersection = aLoopRefs.filter(x =>x!=null&& bLoopRefs.includes(x));
+		if(intersection.length>2)
+			alert("classify error")
+
+		if(intersection.length==1)
+			return true
+		else
+			return false;
+		//console.log("Loop Refs")
+		//console.log([aLoopRefs,bLoopRefs])
+
+	}
+	#calcPlane()
+	{
+		// let coplanerPoints=[]
+		// for(var v of verts){
+		// 	if(coplanerPoints.length==0)
+		// 		push(v.position)
+		// 	else if(coplanerPoints.length==1&& coplanerPoints[0].distanceTo(v.position)>0.00001)
+		// 		push(v.position)
+		// 	else if(coplanerPoints.length==2)
+		// 	{
+		// 		const normal = _vector1.subVectors( c, b ).cross( _vector2.subVectors( a, b ) ).normalize();
+		// 		if()
+		// 	}
+		// }
+		
+	}
+		//# Counter-clockwise angle from vector2 to vector1, as seen from normal.
+	static angleBetween(vector1, vector2, normal){
+		let cross=vector2.clone().cross(vector1)
+		let crossDot=cross.dot(normal)
+		let v1DotV2=vector1.clone().dot(vector2)
+	  	return Math.atan2(crossDot, v1DotV2)
+	}
+	static findBest(plane,firstEdge,startNode,direction){
+		let minAngle=999;
+		let maxAngle=-999;
+		let bestEdge=null;
+		let prevNode=firstEdge.otherVertex(startNode)
+		let firstVect=prevNode.position.clone().sub(startNode.position)
+
+		for(var e of startNode.allEdges()){
+			if(e==firstEdge){
+				continue
+			}
+			let other=e.otherVertex(startNode)
+			let eVect=other.position.clone().sub(startNode.position).negate()
+			
+			let dist =Math.abs(plane.distanceToPoint( other.position ))
+
+			if(dist>0.1){
+				console.log("Wrong plane:"+dist)
+				//#puts("Wrong plane:"+planeDir.to_s)
+				continue;
+			}
+			let angle=Loop.angleBetween(firstVect,eVect,plane.normal)
+			//console.log("Angle:"+angle * 180 / Math.PI)
+			if(direction<0){
+				if(angle<minAngle){
+					minAngle=angle
+					bestEdge=e;
+				}
+			}else{
+				if(angle>maxAngle){
+					maxAngle=angle
+					bestEdge=e;
+				}
+
+			}
+		}
+
+		return(bestEdge)
+	}
+	static findAllLoops(firstEdge)
+	{
+		let loop=Loop.findLoop(firstEdge,new Vector3(0,-1,0),-1)
+		let loop2=Loop.findLoop(firstEdge,new Vector3(0,1,0),1)
+		let allLoops=[];
+		if(loop.length)
+		{
+			let testLoop=new Loop(loop)
+			testLoop.isLeft=true;
+			if(!testLoop.isCw)
+			{
+				allLoops.push(testLoop)
+			}
+		} 
+		if (loop2.length)
+		{
+			let testLoop=new Loop(loop2)
+			testLoop.isLeft=false;
+			if(!testLoop.isCw){
+				allLoops.push(testLoop)
+			}
+		}
+		return allLoops;
+	}
+	static findLoop(firstEdge,planeDir=null,direction=-1)
+	{
+		//firstPlane=[Geom::Point3d.new(0,0,0),Geom::Vector3d.new(0,0,-1)]
+		if(planeDir==null)
+			planeDir=new Vector3(0,-1,0)
+
+		let firstPlane=new THREE.Plane(planeDir,0)
+		let loopEdges=[]
+		let curNode=firstEdge.end
+		if(direction>0)
+			curNode=firstEdge.start;
+		let best=Loop.findBest(firstPlane,firstEdge,curNode,direction)
+
+		let loop=[]
+		loop.push(best)
+		while(best!=null){
+			if(best==firstEdge){
+				console.log("Good Loop Detected")
+				return loop;
+				break
+			}
+			if(loopEdges.indexOf(best)>-1){
+				console.log("Inner Loop Detected")
+				return []
+				break
+			}
+			loopEdges.push(best);
+			//#figure out endNode
+			curNode=best.otherVertex(curNode)
+			best=Loop.findBest(firstPlane,best,curNode,direction)
+
+			if(best)
+				loop.push(best)
+		}
+		if(best==null){
+			console.log("Dead Ended")
+			return []
+		}		
+		alert("never here?")
+	}
+
+
 }
 
 class Face extends Entity{
 	//vertices=[ new THREE.Vertex(), new THREE.Vertex()];
 	static byId={};
-	static normalMaterial = new THREE.MeshBasicMaterial( { 
+	static oldNormalMaterial = new THREE.MeshBasicMaterial( { 
 		color: 0xaaaaaa,
 		side: THREE.DoubleSide 
 	} );
-	static selectedMaterial = new THREE.MeshBasicMaterial( { 
+	static oldSelectedMaterial = new THREE.MeshBasicMaterial( { 
 		color: 0xaaaaff,
 		side: THREE.DoubleSide 
 	} );
+	static normalMaterial = new THREE.ShaderMaterial({
+		side: THREE.DoubleSide,
+		  vertexShader: `
+			varying vec2 vUv;
+	  
+			void main() {
+			  vec3 transformed = vec3( position );
+			  vec4 mvPosition = vec4( transformed, 1.0 );
+			  #ifdef USE_INSTANCING
+				mvPosition = instanceMatrix * mvPosition;
+			  #endif
+			  //vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
+			  vec4 modelViewPosition = modelViewMatrix * mvPosition;
+			  vUv = uv;
+			  gl_Position = projectionMatrix * modelViewPosition;
+			}
+		  `,
+		  fragmentShader: `
+			uniform float u_time;
+			uniform float test;
+			varying vec2 vUv;
+	  
+			void main () {
+			  //float hue = abs(sin(u_time));
+			  // gl_FragColor = vec4(0.0,1.0,0.0,1.0); // green
+			  gl_FragColor = vec4(0.7,0.7,0.9,1.0); // yellow
+			  if (!gl_FrontFacing){
+				gl_FragColor = vec4(0.8,0.8,0.8,1.0); // red
+			  } 
+			}
+		  `,
+		  uniforms: {
+			u_time: { value: 0 }
+		  }
+		});	
+	static selectedMaterial = new THREE.ShaderMaterial({
+		side: THREE.DoubleSide,
+			vertexShader: `
+			varying vec2 vUv;
+		
+			void main() {
+				vec3 transformed = vec3( position );
+				vec4 mvPosition = vec4( transformed, 1.0 );
+				#ifdef USE_INSTANCING
+				mvPosition = instanceMatrix * mvPosition;
+				#endif
+				//vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
+				vec4 modelViewPosition = modelViewMatrix * mvPosition;
+				vUv = uv;
+				gl_Position = projectionMatrix * modelViewPosition;
+			}
+			`,
+			fragmentShader: `
+			uniform float u_time;
+			uniform float test;
+			varying vec2 vUv;
+		
+			void main () {
+				//float hue = abs(sin(u_time));
+				// gl_FragColor = vec4(0.0,1.0,0.0,1.0); // green
+				gl_FragColor = vec4(0.7,0.7,1.0,1.0); // yellow
+				if (!gl_FrontFacing){
+				gl_FragColor = vec4(0.8,0.8,1.0,1.0); // red
+				} 
+			}
+			`,
+			uniforms: {
+			u_time: { value: 0 }
+			}
+		});
 	constructor(loop) {
 
 		super()
 		this.type="Face"
+
+		let delLoop=loop.findExistingLoop();
+		if(delLoop)
+		{
+			console.log("Remove existing face:")
+			console.log(delLoop)
+			editor.model.entities.removeEntity(delLoop.face)
+		}
+
+
+		loop.make(this);//registers loop with all edges
 		this.loop=loop;
+
+
 
 		Face.byId[this.id]=this;
 
@@ -1077,6 +1332,10 @@ class Edge extends Entity{
 	removeLoopRef(edge){
 		this.loopRefs[edge.id]=null;
 	}
+	getLoops()
+	{
+		this.loopRefs.map(l=>Loop.byId[l.id])
+	}
 	createRenderObject()
 	{
 		const edgeVerts= [
@@ -1181,7 +1440,7 @@ class Edge extends Entity{
 // 	def angleBetween(vector1, vector2, normal = Z_AXIS)
 //   Math.atan2((vector2 * vector1) % normal, vector1 % vector2)
 // end
-	findBest(plane,firstEdge,startNode,direction){
+	xfindBest(plane,firstEdge,startNode,direction){
 		let minAngle=999;
 		let maxAngle=-999;
 		let bestEdge=null;
@@ -1229,7 +1488,7 @@ class Edge extends Entity{
 		//console.log(["Best",bestEdge,minAngle.radians])
 		return(bestEdge)
 	}
-	findLoop(planeDir=null,direction=-1)
+	xfindLoop(planeDir=null,direction=-1)
 	{
 		let firstEdge=this;
 
