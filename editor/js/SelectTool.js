@@ -20,6 +20,22 @@ class SelectTool {
         this.helpers.push( new THREE.PlaneHelper(this.frustum.planes[3], 1, 0xffff00));
         this.helpers.push( new THREE.PlaneHelper(this.frustum.planes[4], 1, 0xffff00));
         this.helpers.push( new THREE.PlaneHelper(this.frustum.planes[5], 1, 0xffff00));
+
+        //for fence select
+        let rect=new RectHelper(5)
+
+        rect.visible = false;        
+        this.rect=rect;
+
+        //cursor
+        const dot = new RectHelper(5)     
+        this.dot=dot;
+        this.dot.visible=true;
+
+        //edge direction helper
+        const arrow = new ArrowHelper(0.2)     
+        this.arrow=arrow;
+        this.arrow.visible=true;    
 	}
 	activate()
 	{
@@ -325,43 +341,9 @@ class SelectTool {
 
 	onSetCursor(){}
 	draw(){}
-    setupRibbon()
-    {
-        // // this camera is used to render selection ribbon
-        // const ocamera = new THREE.OrthographicCamera(editor.view.container.dom.offsetWidth / -2, editor.view.container.dom.offsetWidth / 2, editor.view.container.dom.offsetHeight / 2, editor.view.container.dom.offsetHeight / -2, 0.1, 1000);
-        // //editor.scene.add(ocamera);
-        
-        // ocamera.position.x = 0;
-        // ocamera.position.y = 0;
-        // ocamera.position.z = 100; // this does not matter, just far away
-        
-        // ocamera.lookAt(0, 0, 0);
-        // // IMPORTANT, camera and ribbon are in layer#1,
-        // // Here we render by layers, from two different cameras
-        // //ocamera.layers.set(1);
-        
-        // this.ocamera=ocamera;
 
-
-        let rect=new RectHelper(5)
-        //rect.position.copy(new Vector3(20,20,0))
-        //rect.layers.set(1); // IMPORTANT, this goes to layer#1, everything else remains in layer#0 by default
-        rect.visible = false;        
-        this.rect=rect;
-
-        const dot = new RectHelper(5)     
-        this.dot=dot;
-        this.dot.visible=true;
-
-        const arrow = new ArrowHelper(0.2)     
-        this.arrow=arrow;
-        this.arrow.visible=true;        
-    }
 	render(renderer,camera)
     {
-        if(!this.rect)
-            this.setupRibbon();
-
         if(this.rect && this.rect.visible)
             renderer.render(this.rect,editor.view.uiCamera);
 

@@ -182,13 +182,43 @@ class Model extends THREE.Group{
 		super()
 		this.name="Model"
 		this.entities=new Entities();
+		
+		this.add(this.entities)
+
 		this.commandHistory=[]
+		window.logHistory=this.logHistory
 	}
 	addHistory(command)
 	{
 		this.commandHistory.push(command)
 		//console.log("History:")
 		//console.log(command)
+	}
+	logHistory()
+	{
+		for(var l of editor.model.commandHistory )
+			console.log(l)
+
+	}
+	saveHistory(name=null)
+	{
+		if(name==null)
+			name="default";
+		localStorage.setItem("history."+name, JSON.stringify(this.commandHistory));
+	}
+	replayHistory(name=null)
+	{
+		let commandsJson=localStorage.getItem("history."+name);
+		if(commandsJson)
+		{
+			let commands = JSON.parse(commandsJson)
+			for(var c of commands)
+			{
+				eval(c)
+			}
+			editor.view.render();
+		}
+
 	}
 	// toJSON()
 	// {
@@ -280,6 +310,8 @@ class SplitEdgeCommand extends Command {
 
 		let newEdge= new Edge(newVert,this.edge.end)
 
+		let oldEnd=this.edge.end;
+
 		this.edge.end.disconnect(this.edge)//remove this edge from v2 connections
 
 		this.edge.end=newVert//new vert should already be connected right?
@@ -292,6 +324,13 @@ class SplitEdgeCommand extends Command {
 		
 
 		window.editor.model.entities.edges[newEdge.id]=newEdge;
+
+		let loops=this.edge.getLoops()
+		for(var loop of loops)
+		{
+			if(loop && !loop.deleted)
+				loop.insertEdge(this.edge,newEdge,this.edge.start,oldEnd,newVert)
+		}
 		
 		this.newEdge=newEdge;
 		window.editor.view.render()
@@ -442,9 +481,11 @@ class AddEdgeCommand extends Command {
 
 }
 
-class Entities{ 
+class Entities extends THREE.Group{ 
 	constructor()
 	{
+		super()
+
 		this.edges={};
 		this.faces={};
 		this.edgesList=new EdgeList(1000);
@@ -456,6 +497,7 @@ class Entities{
 		// this.edgesList.add(new Vector3(),new Vector3(2,2,2));
 		//this.inferHelpers=new InferHelpers();
 		this.inferSet= new InferSet();
+		this.name="Entities"
 	}
 
 	test()
@@ -662,7 +704,8 @@ class Entities{
 		//newVerts.push(new Vertex(endPos));
 		for(var i=0;i<sortedVerts.length-1;i++)
 		{
-			if(sortedVerts[i].findEdge(sortedVerts[i+1])==null)
+			let existing=sortedVerts[i].findEdge(sortedVerts[i+1])
+			if(existing==null)
 			{
 				let newEdge = new Edge(sortedVerts[i],sortedVerts[i+1])
 
@@ -697,6 +740,12 @@ class Entities{
 				this.test();
 			}else{
 				console.log("Edge already exists!");
+				let loops=Loop.findAllLoops(existing)
+				for(var loop of loops)
+				{
+					editor.model.entities.addFace(loop)
+
+				}
 			}
 			
 		}
@@ -709,17 +758,17 @@ class Entities{
 const edgeMaterial = new LineMaterial( {
 
 	color: 0x000000,
-	linewidth: 2, // in pixels
+	//linewidth: 2, // in pixels
 	vertexColors: false,
 	//resolution:  // to be set by renderer, eventually
 	//dashed: false,
 	//alphaToCoverage: true,
-	// onBeforeCompile: shader => {
-	// 	shader.vertexShader = `
-	// 	${shader.vertexShader}
-	// 	`.replace(`uniform float linewidth;`, `attribute float linewidth;`);
-	// 	//console.log(shader.vertexShader)
-	// }
+	onBeforeCompile: shader => {
+		shader.vertexShader = `
+		${shader.vertexShader}
+		`.replace(`uniform float linewidth;`, `attribute float linewidth;`);
+		//console.log(shader.vertexShader)
+	}
 
 } );
 const selectedEdgeMaterial = new LineMaterial( {
@@ -979,6 +1028,34 @@ class Loop extends Entity
 		//console.log([aLoopRefs,bLoopRefs])
 
 	}
+	insertEdge(oldEdge,newEdge,afterVert,beforeVert,newEnd)
+	{
+		let afterIndex=this.verts.indexOf(afterVert)
+		let beforeIndex=this.verts.indexOf(beforeVert)
+		if(afterIndex<0 || beforeIndex<0 || afterIndex==beforeIndex)
+		{	
+			console.log("Loop insertEdge failed to find insert location")
+			return;
+		}
+		if(afterIndex<beforeIndex)
+		{
+			let edgeIndex=beforeIndex*2
+			this.edges.splice(edgeIndex,0,newEdge)
+			this.verts.splice(beforeIndex,0,newEnd)
+			newEdge.addLoopRef(this)
+
+		}else{
+			let edgeIndex=afterIndex*2
+			this.edges.splice(edgeIndex,0,newEdge)
+			this.verts.splice(afterIndex,0,newEnd)
+			newEdge.addLoopRef(this)
+		}
+
+	}
+	merge(commonEdge,otherLoop)
+	{
+		//this and other loop should share
+	}
 	#calcPlane()
 	{
 		// let coplanerPoints=[]
@@ -1214,6 +1291,11 @@ class Face extends Entity{
 		this.createRenderObject();
 
 	}
+	mergeWith(commonEdge,otherFace)
+	{
+		this.loop.merge(commonEdge,otherFace.loop)
+		otherFace.delete();
+	}
 	createRenderObject()
 	{
 		let verts=[]
@@ -1323,18 +1405,35 @@ class Edge extends Entity{
 		vertex2.connect(this)
 		Edge.byId[this.id]=this;
 		this.loopRefs={};
+		this.lineWidth=2;
 		this.createRenderObject();
 
 	}
 	addLoopRef(edge){
 		this.loopRefs[edge.id]=edge;
+		if(this.getLoopCount()>1)
+		{
+			this.lineWidth=1
+			this.updateRenderObject();
+		}
 	}
 	removeLoopRef(edge){
-		this.loopRefs[edge.id]=null;
+		delete this.loopRefs[edge.id];
+		if(this.getLoopCount()<1)
+		{
+			this.lineWidth=2
+			this.updateRenderObject();
+		}
+	}
+	getLoopCount()
+	{
+		return Object.keys(this.loopRefs).length;
 	}
 	getLoops()
 	{
-		this.loopRefs.map(l=>Loop.byId[l.id])
+		return Object.values(this.loopRefs).filter(x=>x!=null).map(l=>{
+			return Loop.byId[l.id]
+		})
 	}
 	createRenderObject()
 	{
@@ -1345,7 +1444,7 @@ class Edge extends Entity{
 		const edgeGeometry = new LineGeometry();
 		edgeGeometry.setPositions( edgeVerts );
 		let clr=[0,0,128,0,0,128]
-		let lineWidths=[1]
+		let lineWidths=[this.lineWidth]
 		edgeGeometry.setColors( clr );
 		edgeGeometry.setAttribute("linewidth", new THREE.InstancedBufferAttribute(new Float32Array(lineWidths), 1));
 
@@ -1372,6 +1471,10 @@ class Edge extends Entity{
 			this.renderObject.geometry.needsUpdate=true;
 			this.renderObject.geometry.attributes.instanceStart.needsUpdate=true;
 			this.renderObject.geometry.attributes.instanceEnd.needsUpdate=true;
+
+			this.renderObject.geometry.attributes.linewidth.array[0]=this.lineWidth;
+			this.renderObject.geometry.attributes.linewidth.needsUpdate=true;
+
 			this.renderObject.geometry.computeBoundingBox();
 			setTimeout(() => { 
 				//this.renderObject.geometry.attributes.instanceEnd.setY(0, 0.5); 
