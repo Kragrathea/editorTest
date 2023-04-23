@@ -1,4 +1,4 @@
-import { UIPanel, UIBreak, UIText } from './libs/ui.js';
+import { UIPanel, UIBreak, UIText, UINumber, UIRow } from './libs/ui.js';
 
 function ViewportInfo( editor ) {
 
@@ -21,6 +21,18 @@ function ViewportInfo( editor ) {
 	const inferStr = "test";
 	const inferText = new UIText( 'Nothing' ).setMarginLeft( '6px' );
 	container.add( new UIText( 'Infer' ), inferText, new UIBreak() );
+
+	// const lineText = new UIText( '0.0m' ).setMarginLeft( '6px' );
+	// container.add( new UIText( 'LineLength' ), lineText, new UIBreak() );
+
+	// const widthRow = new UIRow();
+	// const width = new UINumber( 20 ).onChange( update );
+
+	// widthRow.add( new UIText( "Line Length").setWidth( '90px' ) );
+	// widthRow.add( width );
+
+	// container.add( widthRow );
+	
 
 	container.add( new UIText( strings.getKey( 'viewport/info/objects' ) ).setTextTransform( 'lowercase' ) );
 	container.add( objectsText, new UIBreak() );

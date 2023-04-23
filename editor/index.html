@@ -60,38 +60,47 @@
 
 		<script type="module">
 
-			import {point, circle, segment,polygon, vector, line, multiline} from "./js/flatten-js.esm.js";
+			//disable middle mouse scroll because of chrome bug.
+			document.body.onmousedown = function(e) {
+				if(e.button == 1) {
+					e.preventDefault();
+					return false;
+				}
+			}
 
-			let s1 = segment(10,10,200,200);
-			let s2 = segment(10,160,200,30);
-			let c = circle(point(200, 110), 50);
-			let ip = s1.intersect(s2);
-			console.log( JSON.stringify(ip));
+
+			// import {point, circle, segment,polygon, vector, line, multiline} from "./js/flatten-js.esm.js";
+
+			// let s1 = segment(10,10,200,200);
+			// let s2 = segment(10,160,200,30);
+			// let c = circle(point(200, 110), 50);
+			// let ip = s1.intersect(s2);
+			// console.log( JSON.stringify(ip));
 			
-			let poly = polygon([
-				[
-				[0, 0],
-				[100, 0],
-				[100, 100],
-				[0, 100]
-				],
-				[
-				[30, 50],
-				[50, 70],
-				[70, 50],
-				[50, 30]
-				],
-				[
-				[40, 50],
-				[50, 70],
-				[60, 50],
-				[50, 30]
-				]
-			]);
-			let l = line(point(30, 40), vector(0, 1));
-			let res_poly = poly.cutWithLine(l);
+			// let poly = polygon([
+			// 	[
+			// 	[0, 0],
+			// 	[100, 0],
+			// 	[100, 100],
+			// 	[0, 100]
+			// 	],
+			// 	[
+			// 	[30, 50],
+			// 	[50, 70],
+			// 	[70, 50],
+			// 	[50, 30]
+			// 	],
+			// 	[
+			// 	[40, 50],
+			// 	[50, 70],
+			// 	[60, 50],
+			// 	[50, 30]
+			// 	]
+			// ]);
+			// let l = line(point(30, 40), vector(0, 1));
+			// let res_poly = poly.cutWithLine(l);
 
-			console.log( JSON.stringify(res_poly));
+			// console.log( JSON.stringify(res_poly));
 
 			import * as THREE from 'three';
 

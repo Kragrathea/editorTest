@@ -13,10 +13,10 @@ CameraControls.install( { THREE: THREE } );
 
 THREE.ColorManagement.enabled = true;
 
-var _DEFAULT_CAMERA = new THREE.PerspectiveCamera( 50, 1, 0.01, 1000 );
+var _DEFAULT_CAMERA = new THREE.PerspectiveCamera( 50, 1, 0.01, 2000 );
 _DEFAULT_CAMERA.name = 'Camera';
-_DEFAULT_CAMERA.position.set( 0, 5, 10 );
-_DEFAULT_CAMERA.lookAt( new THREE.Vector3() );
+_DEFAULT_CAMERA.position.set( 3, 2, 4 );
+_DEFAULT_CAMERA.lookAt( new THREE.Vector3(0,0,0) );
 
 function Editor() {
 

@@ -53,6 +53,22 @@ class SelectTool {
                 if(ent.type=="Edge")
                     {
                         editor.view.selection.remove(ent)
+                        if(ent.getLoopCount()==1)
+                        {
+                            let loop=ent.getLoops()[0]
+                            if(loop && loop.face)
+                                editor.model.entities.removeEntity(loop.face);
+
+                        }
+                        if(ent.getLoopCount()==2)
+                        {
+                            let loops=ent.getLoops()
+                            let loop=loops[0]
+                            loop.face.mergeWith(loops[1].face,ent)
+                            //if(loop && loop.face)
+                            //    editor.model.entities.removeEntity(loop.face);
+
+                        }
                         window.editor.execute( new RemoveEdgeCommand(window.editor, ent ) );	
                         editor.view.render();
                     }
@@ -92,7 +108,7 @@ class SelectTool {
         this.mouseIp.pick(view,position.x,position.y,false)
 		if(this.mouseIp.intersectingObjects.length>0)
 		{
-            console.log("here")
+            //console.log("here")
 			let firstObject=this.mouseIp.intersectingObjects[0];
 			//console.log(firstObject)
 			if(firstObject.object.userData.edgeId)

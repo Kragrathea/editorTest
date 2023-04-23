@@ -24,9 +24,10 @@ import { AddObjectCommand } from './commands/AddObjectCommand.js';
 import { Line2 } from '../../examples/jsm/lines/Line2.js';
 import { LineMaterial } from '../../examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from '../../examples/jsm/lines/LineGeometry.js';
-import { Model, Selection, LineTool, MoveTool } from './LineTool.js';
+import { Model, Selection, LineTool, MoveTool, PushTool } from './LineTool.js';
 import { SelectTool } from './SelectTool.js';
 import CameraControls from './camera-controls.module.js';
+import { FontLoader } from '../../examples/jsm/loaders/FontLoader.js';
 
 
 
@@ -67,7 +68,7 @@ function toColorArray( colors ) {
 		 * @param {array} colors
 		 * @param {boolean} topDown - Whether to work top down or bottom up.
 		 */
- function paintFaces( geometry, radius, angles, colors, topDown ) {
+ function xpaintFaces( geometry, radius, angles, colors, topDown ) {
 	// compute threshold values
 	const thresholds = [];
 	const startAngle = ( topDown === true ) ? 0 : Math.PI;
@@ -146,21 +147,128 @@ function toColorArray( colors ) {
 	}
 	geometry.setAttribute( 'color', colorAttribute );
 }
+function paintFaces( geometry, radius, angles, colors, topDown ) {
 
+	var direction = ( topDown === true ) ? 1 : - 1;
+
+	var coord = [], A = {}, B = {}, applyColor = false;
+
+	for ( var k = 0; k < angles.length; k ++ ) {
+
+		// push the vector at which the color changes
+
+		var vec = {
+			x: direction * ( Math.cos( angles[ k ] ) * radius ),
+			y: direction * ( Math.sin( angles[ k ] ) * radius )
+		};
+
+		coord.push( vec );
+
+	}
+
+	var index = geometry.index;
+	var positionAttribute = geometry.attributes.position;
+	var colorAttribute = new THREE.BufferAttribute( new Float32Array( geometry.attributes.position.count * 3 ), 3 );
+
+	var position = new THREE.Vector3();
+	var color = new THREE.Color();
+
+	for ( var i = 0; i < index.count; i ++ ) {
+
+		var vertexIndex = index.getX( i );
+
+		position.fromBufferAttribute( positionAttribute, vertexIndex );
+
+		for ( var j = 0; j < colors.length; j ++ ) {
+
+			// linear interpolation between aColor and bColor, calculate proportion
+			// A is previous point (angle)
+
+			if ( j === 0 ) {
+
+				A.x = 0;
+				A.y = ( topDown === true ) ? radius : - 1 * radius;
+
+			} else {
+
+				A.x = coord[ j - 1 ].x;
+				A.y = coord[ j - 1 ].y;
+
+			}
+
+			// B is current point (angle)
+
+			B = coord[ j ];
+
+			if ( B !== undefined ) {
+
+				// p has to be between the points A and B which we interpolate
+
+				applyColor = ( topDown === true ) ? ( position.y <= A.y && position.y > B.y ) : ( position.y >= A.y && position.y < B.y );
+
+				if ( applyColor === true ) {
+
+					var aColor = colors[ j ];
+					var bColor = colors[ j + 1 ];
+
+					// below is simple linear interpolation
+
+					var t = Math.abs( position.y - A.y ) / ( A.y - B.y );
+
+					// to make it faster, you can only calculate this if the y coord changes, the color is the same for points with the same y
+
+					color.copy( aColor ).lerp( bColor, t );
+
+					colorAttribute.setXYZ( vertexIndex, color.r, color.g, color.b );
+
+				} else {
+
+					var colorIndex = ( topDown === true ) ? colors.length - 1 : 0;
+					var c = colors[ colorIndex ];
+					colorAttribute.setXYZ( vertexIndex, c.r, c.g, c.b );
+
+				}
+
+			}
+
+		}
+
+	}
+
+	geometry.setAttribute( 'color', colorAttribute );
+
+}
 function buildBackground() {
 	const group = new THREE.Group();
 
 	let groundAngle=[
-		1.5, 1.6
+		1.5
+		, 1.6
 	]
 	let groundColor=[
-		0.2, 0.6, 0.3, 0.4, 0.4, 0.35, 0.3, 0.5, 0.6
+		0.2, 0.6, 0.3, 
+		0.4, 0.4, 0.35, 
+		0.3, 0.5, 0.6
 	]
 	let skyAngle=[
-		1.5
+	-1.0,
+	//-1.0,
+	//-0.2,
 	]
 	let skyColor=[
-		0.5, 0.7, 1, 0.7, 1, 0.9,
+		// 0.0, 0.0, 0, 
+		// 0.0, 0.0, 0.4, 
+		//1.0, 1.0, 1, 
+	 0.3, 0.5, 1, 
+	 0.7, 1, 1,
+		 //1.0, 0, 0,
+		 //0.0, 1, 0,
+		 //0.0, 0, 1,
+
+		// 0.0, 0.0, 0, 
+		// 0.0, 0, 0.3,
+		// 0.0, 0, 0.6,
+		// 0.9, 0.9, 1.0,
 	]
 
 	const radius = 900;
@@ -291,13 +399,91 @@ function Viewport( editor ) {
 	const grid2 = new THREE.GridHelper( 30, 6, 0x222222 );
 	grid2.material.color.setHex( 0x222222 );
 	grid2.material.vertexColors = false;
+
+	//grid2.material=new THREE.ShadowMaterial();
 	grid.add( grid2 );
 	grid.receiveShadow = true;
 	grid1.receiveShadow = true;
 	grid2.receiveShadow = true;
 
-
 	grid.visible=true;
+
+	const loader = new FontLoader();
+	loader.load( '../examples/fonts/helvetiker_regular.typeface.json', function ( font ) {
+
+		const color = 0x006699;
+
+		const matDark = new THREE.LineBasicMaterial( {
+			color: color,
+			side: THREE.DoubleSide
+		} );
+
+		const matLite = new THREE.MeshBasicMaterial( {
+			color: color,
+			transparent: true,
+			opacity: 0.4,
+			side: THREE.DoubleSide
+		} );
+
+		if(true){
+			const message = '1m';
+			const shapes = font.generateShapes( message, 0.1 );
+			const geometry = new THREE.ShapeGeometry( shapes );
+			geometry.computeBoundingBox();
+
+			const xMid = - 0.5 * ( geometry.boundingBox.max.x - geometry.boundingBox.min.x );
+			geometry.translate( xMid, 1, 0 );
+
+			const text = new THREE.Mesh( geometry, matDark );
+			text.position.z = - 0;
+			text.lookAt(0,1,0)
+			scene.add( text );
+		}
+		if(true){
+			const message = '10m';
+			const shapes = font.generateShapes( message, 0.5 );
+			const geometry = new THREE.ShapeGeometry( shapes );
+			geometry.computeBoundingBox();
+
+			const xMid = - 0.5 * ( geometry.boundingBox.max.x - geometry.boundingBox.min.x );
+			geometry.translate( xMid, 10, 0 );
+
+			const text = new THREE.Mesh( geometry, matDark );
+			text.position.z = - 0;
+			text.lookAt(0,1,0)
+			scene.add( text );
+		}
+		if(true){
+			const message = '1mm';
+			const shapes = font.generateShapes( message, 0.01 );
+			const geometry = new THREE.ShapeGeometry( shapes );
+			geometry.computeBoundingBox();
+
+			const xMid = - 0.5 * ( geometry.boundingBox.max.x - geometry.boundingBox.min.x );
+			geometry.translate( xMid,0.01,0 );
+
+			const text = new THREE.Mesh( geometry, matDark );
+			text.position.z = - 0;
+			text.lookAt(0,1,0)
+			scene.add( text );
+		}
+	});
+
+	//Shadows. Interferes with the drawing
+// 	const planeGeometry = new THREE.PlaneGeometry( 20, 20 );
+// //	const material = new THREE.MeshBasicMaterial( {color: 0xffffff, side: THREE.DoubleSide} );
+// 	const material = new THREE.ShadowMaterial( {color: 0x000000, side: THREE.DoubleSide, depthWrite:false} );
+// 	const plane = new THREE.Mesh( planeGeometry, material );
+// 	plane.lookAt(0,1,0)
+// 	plane.receiveShadow=true;
+// 	plane.name="Shadow Plane"
+// 	//scene.add( plane );
+
+// 	const light = new THREE.PointLight( 0xffffff, 1, 100 );
+// 	light.position.set( 10, 10, 10 );
+// 	light.name="Point Light"
+// 	light.castShadow=true;
+// 	scene.add( light );
 
 
 
@@ -852,7 +1038,7 @@ function Viewport( editor ) {
 
 	function onKeyDown(event)
 	{
-		console.log("onKeyDown"+event.keyCode)
+		//console.log("onKeyDown"+event.keyCode)
 		if(event.keyCode==32)
 		{
 			//editor.setTool(new SelectTool());
@@ -868,7 +1054,7 @@ function Viewport( editor ) {
 
 	function onKeyUp(event)
 	{
-		console.log("onKeyUp"+event.keyCode)
+		//console.log("onKeyUp"+event.keyCode)
 		if(event.keyCode==27)
 		{
 			if(editor.activeTool && editor.activeTool.cancel)
@@ -880,9 +1066,12 @@ function Viewport( editor ) {
 		}else if(event.keyCode==76 || event.keyCode==83) //L or D
 		{
 			editor.setTool(new LineTool());
-		}else if(event.keyCode==77) //L or D
+		}else if(event.keyCode==77) //m
 		{
 			editor.setTool(new MoveTool());
+		}else if(event.keyCode==80) 
+		{
+			editor.setTool(new PushTool());
 		}else{
 			if(editor.activeTool && editor.activeTool.onKeyUp)
 				editor.activeTool.onKeyUp(event)	
@@ -894,6 +1083,7 @@ function Viewport( editor ) {
 
 	//const controls new EditorControls( camera, container.dom );
 	const controls = new CameraControls( camera, container.dom );
+	editor.view.controls=controls
 
 	controls.mouseButtons.middle=CameraControls.ACTION.ROTATE;
 	controls.mouseButtons.left=CameraControls.ACTION.NONE;
@@ -1395,6 +1585,7 @@ function Viewport( editor ) {
 
 		renderer.setViewport( 0, 0, container.dom.offsetWidth, container.dom.offsetHeight );
 
+		sky.position.copy(editor.viewportCamera.position);
 		renderer.render( sky, editor.viewportCamera );
 		renderer.autoClear = false;
 		renderer.render( scene, editor.viewportCamera );
