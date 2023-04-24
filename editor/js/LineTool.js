@@ -40,9 +40,9 @@ class Vertex extends Entity{
 	//loops()
 	//position=new THREE.Vector3;
 	static byId={}//should be weak set
-	constructor(position) {
+	constructor(position,doMerge=true) {
 
-		if(true){
+		if(doMerge){
 			let closest=Vertex.findClosest(position)
 			if(closest && closest.position.manhattanDistanceTo(position)<0.000001)
 			{
@@ -58,6 +58,9 @@ class Vertex extends Entity{
 		Vertex.byId[this.id]=this;
 
 		//console.log(["byId",Entity.byId])
+	}
+	copy(){
+		return new Vertex(this.position.clone(),false)
 	}
 	static findClosest(position){
 		let closest=null;
@@ -131,7 +134,6 @@ class Vertex extends Entity{
 			this.position= new Vector3(json.position.x,json.position.y,json.position.z);
 		}
 	}
-	copy(){	}
 	
 }
 class Selection{
@@ -644,6 +646,12 @@ class Entities extends THREE.Group{
 		this.faces[newFace.id]=newFace;
 		return newFace
 	}
+	//addVert
+	//mergeVert
+	//undo merge
+	//mergeEdge
+	//undoMerge
+	//mergeFace (multi mergeEdges, loops handle themselves?)
 	//todo: undo/redo. Cases add/remove edge, split edge, move verts (and/or edge?)
 	addEdge(startPos,endPos){
 
@@ -982,6 +990,66 @@ class EdgeList{
 	}	
 	
 }
+function findColinearEdges(firstEdge,edges=[])
+{
+	let firstNode=firstEdge.start;
+
+	//for(var e )
+	//foreach e of connection
+	//if e is colinear and not in edges 
+	//edges.push(e)
+	//findColinearEdges(e,edges)
+
+	let nextEdge=edges[1]
+	let nextNode=firstEdge.end
+	if(nextEdge.otherVertex(nextNode)==null)
+	{	
+		nextNode=firstEdge.start
+		firstNode=firstEdge.end
+		if(nextEdge.otherVertex(nextNode)==null)
+			alert("shouldn't happen")
+
+	}
+
+}
+
+//findloops3d(firstEdge)
+//findColinearEdges
+//foreach edge
+//find plane for each non colinear connected edge
+// sort edges by plane and dist from first edge
+// findLoop2d by plane
+// at most one right and one left loop.
+
+//push
+//copy face
+//new vert for each in face
+//new edge for each in face
+//make face
+//new edge for each vert to original vert
+//new face for each edge 3x new edges and one old edge
+
+//foreach edge 
+	//add new edge up add
+	//add new edge between new start and old start
+	//add new edge between new end and old end
+
+//foreach vertex
+//detach from all but loop
+//new edge between vert and detached vert	
+
+//foreach vertex
+// make new vertex along normal
+// make edge from old vert to new
+//make lid by creating edges from new vert loop
+//adjust height by moving verts.
+//undo
+//remove all new edges
+
+
+//new edge between vert and detached vert	
+
+
 
 class Loop extends Entity
 {
@@ -1029,11 +1097,16 @@ class Loop extends Entity
 		console.log("Finished Loop. Verts:")
 		console.log(this.verts)
 
-		let p= new THREE.Plane()
-		p.setFromCoplanarPoints(this.verts[0].position,this.verts[1].position,this.verts[2].position)
-		this.normal=p.normal;
-		console.log(["loop normal:",p.normal.y])
+		let vects = this.verts.map(x=>x.position)
+		let p=findPlaneFromPoints(vects)
+		if(p!=null){
+			this.plane=p;
+		}else
+		{
+			alert("Bad loop normal")
+		}
 
+		//todo. Needs to suport 3d.
 		let points =this.verts.map(v=>new THREE.Vector2(v.position.x,v.position.z));
 		let isCw=ShapeUtils.isClockWise(points);
 		this.isCw=isCw;
@@ -1316,7 +1389,8 @@ class Face extends Entity{
 		color: 0xaaaaff,
 		side: THREE.DoubleSide 
 	} );
-	static normalMaterial = new THREE.ShaderMaterial({
+	static normalMaterial=this.oldNormalMaterial;
+	static xnormalMaterial = new THREE.ShaderMaterial({
 		side: THREE.DoubleSide,
 		  vertexShader: `
 			varying vec2 vUv;
@@ -1351,7 +1425,8 @@ class Face extends Entity{
 			u_time: { value: 0 }
 		  }
 		});	
-	static selectedMaterial = new THREE.ShaderMaterial({
+	static selectedMaterial= this.oldSelectedMaterial;
+	static xselectedMaterial = new THREE.ShaderMaterial({
 		side: THREE.DoubleSide,
 			vertexShader: `
 			varying vec2 vUv;
@@ -1426,19 +1501,54 @@ class Face extends Entity{
 		this.updateRenderObject()
 
 	}
+	copy()
+	{
+		let lastVert=null
+		let newLoopEdges=[]
+		for(let vert of this.loop.verts){
+			let nextVert =new Vertex(vert.position,false)
+			if (lastVert){
+				let newEdge=new Edge(lastVert,nextVert)
+				newLoopEdges.push(newEdge)
+			}
+			lastVert=nextVert
+		}
+		let lastEdge=new Edge(lastVert,newLoopEdges[0].start)
+		newLoopEdges.push(lastEdge) //connect first to last.
+
+		let newLoop=new Loop(newLoopEdges);
+		
+		let newFace=new Face(newLoop)
+		return newFace
+
+		//let newLoop = this.loop.copy()
+
+		//for(let vert of this.verts)
+		//newVerts.push(new Vertex(vert.position.clone(),noMerge=true))
+		//for newVerts
+		//newEdges.push()
+		//new loop(newEdges)
+		//let face = new Face(loop)
+		//return face	
+	}
 	createRenderObject()
 	{
 		let verts=[]
 
+		//todo. project loop verts onto plane
 		for(var vert of this.loop.verts){
-			verts.push(new THREE.Vector2(vert.position.x,vert.position.z))
+			let target=new THREE.Vector3();
+			this.loop.plane.projectPoint(vert.position,target)
+			verts.push(new THREE.Vector2(target.x,target.z))
+			//verts.push(new THREE.Vector2(vert.position.x,vert.position.z))
 		}
 
 		const shape= new THREE.Shape(verts)
 		const geometry = new THREE.ShapeGeometry( shape );
+		geometry.lookAt(this.loop.plane.normal)
 
 		const face = new THREE.Mesh( geometry, Face.normalMaterial ) ;
-		face.lookAt(new THREE.Vector3(0,-1,0))
+		//face.lookAt(new THREE.Vector3(0,-1,0))
 
 		//face.computeLineDistances();
 		face.name="Face";
@@ -3005,13 +3115,13 @@ class PushTool {
 	}
 	onKeyDown(event)
 	{
-		if(event.keyCode==16 && !event.repeat)
-			this.mouseIp.lockInfer();
+		//if(event.keyCode==16 && !event.repeat)
+		//	this.mouseIp.lockInfer();
 	}
 	onKeyUp(event)
 	{
-		if(event.keyCode==16)
-			this.mouseIp.unlockInfer();
+		//if(event.keyCode==16)
+		//	this.mouseIp.unlockInfer();
 	}
 	onMouseUp(event,position,view)
 	{
@@ -3033,11 +3143,48 @@ class PushTool {
 				this.firstIp.pick(view,position.x,position.y)
 				this.lineHelper.visible=true;
 
-				let normal = this.currentFace.renderObject.getWorldDirection().setLength(100);
+				let normal = this.currentFace.loop.plane.normal.setLength(100);
 				let start = this.firstIp.viewCursor.position.clone();
-				let end = start.add(normal)
+				let end = start.clone().add(normal)
+				start.sub(normal)
+				this.pushLine=new THREE.Line3(start,end);
+
+				if(true)
+				{
+					let newFace=this.currentFace.copy()
+					//this.tempEntities=[newFace]
+					this.lidFace=newFace;
+					this.sideFaces=[];
+
+					this.lidVerts=newFace.loop.verts
+					this.originalVertPos=this.lidVerts.map(v=>v.position.clone())
+
+					for(let lv of this.lidVerts)
+					{
+						lv.position.add(new THREE.Vector3(0,0.1,0))
+					}
+					//newFace.updateRenderObject();
+					newFace.renderObject.geometry.translate(0,0.1,-0.0)
+					for(var edge of newFace.loop.edges)
+					{
+						let bottomEdge=new Edge(edge.start.copy(),edge.end.copy())
+						let sideEdgeA=new Edge(edge.start,bottomEdge.end)
+						let sideEdgeB=new Edge(edge.end,bottomEdge.start)
+						//let sideLoop=new Loop([edge,sideEdgeA,bottomEdge,sideEdgeB])
+						//let sideFace=new Face(sideLoop)
+						//bottomEdges.push()
+						//this.sideFaces.push(sideFace)
+					}
+					//make face from lid edge, copy of lid edge, and two new edges from top to bottom
+					//extrudeEdges.push(new Edge(lidVerts[],lidVerts[].copyNoMerge))
+				//add 
+
+				//
+				}
 					
-				this.tempAxis=window.editor.model.entities.inferSet.addLine(this.firstIp.viewCursor.position);
+				//this.tempAxis=window.editor.model.entities.inferSet.addLine(start,end);
+
+				//this.firstIp.lockedInferLine=this.tempAxis
 
 			}
 
@@ -3071,7 +3218,8 @@ class PushTool {
 				this.firstIp.clear();
 				//console.log("LineTool.onMouseUp:RightButton")
 				this.lineHelper.visible=false;
-				
+
+
 				// //Undo temporary moves
 				// if(this.allVerts){
 				// 	Object.values(this.allVerts).forEach(vert=>{
@@ -3130,6 +3278,25 @@ class PushTool {
 			view.viewportInfo.setInferText(this.mouseIp.viewCursorInferString);
 			let vect=this.mouseIp.viewCursor.position.clone().sub(this.firstIp.viewCursor.position)
 
+			if(this.pushLine){
+				// //console.log("this.lockedInferLine:"+JSON.stringify( this.lockedInferLine))
+				// this.viewCursorInferString+=":LOCKED"
+				// let outVect=new THREE.Vector3();
+				// this.pushLine.closestPointToPoint (this.mouseIp.viewCursor.position, false, outVect ) 
+				let a=new THREE.Vector3();
+				let b=new THREE.Vector3();
+				let startPos=editor.view.camera.position.clone();
+				let endPos=this.mouseIp.viewCursor.position.clone();
+				let ray=new THREE.Ray(startPos,endPos.clone().sub(startPos).normalize())
+				let intersect=ray.distanceSqToSegment(this.pushLine.start.clone(),this.pushLine.end.clone(),a,b)
+
+				this.mouseIp.viewCursor.position.set( b.x,b.y,b.z );
+				//ray from eye to intersection
+				//find nearest intersect ray/pushLine
+				//endPoint=pointOnPushLine
+			}
+			
+
 			// snapTo edge/vert
 			// if(face) snap only if delta = 0
 
@@ -3160,6 +3327,9 @@ class PushTool {
 	{
 		if(this.lineHelper)
 			renderer.render( this.lineHelper, camera )
+
+		if(this.lidFace)
+			renderer.render( this.lidFace.renderObject, camera )
 		//if(this.mouseIp && this.mouseIp.viewCursorValid)	
 		//	renderer.render( this.mouseIp.viewCursor, camera )		
 			
@@ -3197,5 +3367,22 @@ function isPointOnLineAndBetweenPoints (pointA, pointB, pointToCheck) {
 
     return pointA.distanceTo(pointToCheck) < d && pointB.distanceTo(pointToCheck) < d;
 }
-
+function findPlaneFromPoints(points)
+{
+	let p= new THREE.Plane()
+	let i=2;
+	while(isPointOnLine(points[0],points[1],points[i])&& i<points.length)
+	{
+		i++;
+	}
+	if(i<points.length)
+	{
+		p.setFromCoplanarPoints(points[0],points[1],points[i])
+		return p;
+	}else
+	{
+		console.log("Cant find plane from points:")
+		return null;
+	}
+}
 export { LineTool,MoveTool,SelectTool,Entities,Selection, Model, InputPoint, RemoveEdgeCommand,RectHelper,ArrowHelper, Loop, Face,PushTool };
