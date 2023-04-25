@@ -24,7 +24,7 @@ import { AddObjectCommand } from './commands/AddObjectCommand.js';
 import { Line2 } from '../../examples/jsm/lines/Line2.js';
 import { LineMaterial } from '../../examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from '../../examples/jsm/lines/LineGeometry.js';
-import { Model, Selection, LineTool, MoveTool, PushTool } from './LineTool.js';
+import { Model, Selection, LineTool, MoveTool, PushTool, RectTool } from './LineTool.js';
 import { SelectTool } from './SelectTool.js';
 import CameraControls from './camera-controls.module.js';
 import { FontLoader } from '../../examples/jsm/loaders/FontLoader.js';
@@ -1069,9 +1069,12 @@ function Viewport( editor ) {
 		}else if(event.keyCode==77) //m
 		{
 			editor.setTool(new MoveTool());
-		}else if(event.keyCode==80) 
+		}else if(event.keyCode==80)//p  
 		{
 			editor.setTool(new PushTool());
+		}else if(event.keyCode==82)//r  
+		{
+			editor.setTool(new RectTool());
 		}else{
 			if(editor.activeTool && editor.activeTool.onKeyUp)
 				editor.activeTool.onKeyUp(event)	

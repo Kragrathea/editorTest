@@ -110,6 +110,12 @@ class Vertex extends Entity{
 	{
 		this.allEdges().forEach((edge)=>{
 			edge.updateRenderObject();
+
+			let loops = edge.getLoops()
+			for(let loop of loops)
+			{
+				loop.face.updateRenderObject();
+			}
 		})
 	}	
 	toJSON()
@@ -1498,7 +1504,7 @@ class Face extends Entity{
 		newLoop.make();
 		newLoop.face=this;
 		this.loop=newLoop
-		this.updateRenderObject()
+		this.updateRenderObject(true)
 
 	}
 	copy()
@@ -1535,17 +1541,84 @@ class Face extends Entity{
 	{
 		let verts=[]
 
+		let tempY = new THREE.Vector3(5000, -9934, 8444)
+		let pY = new THREE.Vector3()
+		this.loop.plane.projectPoint(tempY, pY)
+		let origin=new Vector3(10,30,50);
+		this.loop.plane.coplanarPoint(origin)
+		pY.normalize()
+		let pX = new THREE.Vector3().crossVectors(pY, this.loop.plane.normal)
+		pX.normalize()
+
 		//todo. project loop verts onto plane
 		for(var vert of this.loop.verts){
 			let target=new THREE.Vector3();
 			this.loop.plane.projectPoint(vert.position,target)
-			verts.push(new THREE.Vector2(target.x,target.z))
+
+			let x = target.clone().projectOnVector(pX).distanceTo(origin)
+			if(!target.clone().projectOnVector(pX).normalize().equals(pX)){
+				x = -x
+			}
+
+			let y = target.clone().projectOnVector(pY).distanceTo(origin)
+			if(!target.clone().projectOnVector(pY).normalize().equals(pY)){
+				y = -y
+			}
+			//let v=new THREE.Vector2(x,y);
+
+			let v=new THREE.Vector2(target.x,target.z);
+
+			v.userData=vert.id;
+			verts.push(v)
 			//verts.push(new THREE.Vector2(vert.position.x,vert.position.z))
 		}
 
 		const shape= new THREE.Shape(verts)
 		const geometry = new THREE.ShapeGeometry( shape );
-		geometry.lookAt(this.loop.plane.normal)
+
+		this.vertIndexes={}
+		let found=0;
+		for(let vert of verts){
+			this.vertIndexes[vert.userData]=[]
+			//let vPos=new Vector3(vert.x,vert.y,0)
+			for(let i=0;i<geometry.attributes.position.count;i++){
+				let pos=new THREE.Vector2(geometry.attributes.position.array[(i*3)+0],geometry.attributes.position.array[(i*3)+1],0)
+				let dist=pos.distanceToSquared(vert)
+
+				if(dist<0.0000001){
+					this.vertIndexes[vert.userData].push(i)
+					found++;
+				}
+			}
+		}
+		console.log("vertIndexes readback: found/position.count"+[found,geometry.attributes.position.count])
+		
+		//error check
+		if(found!=geometry.attributes.position.count)
+			console.log("ERROR:vertIndexes mismatch found/position.count"+[found,geometry.attributes.position.count])
+
+		for(let key of Object.keys(this.vertIndexes))
+		{
+			if(this.vertIndexes[key].length<1)
+			{
+				console.log("ERROR:vertIndexes vert missing id:"+key)
+			}
+		}
+
+		//geometry.lookAt(this.loop.plane.normal)
+		for(let key of Object.keys(this.vertIndexes))
+		{
+			let vertex=Vertex.byId[key]
+			if(vertex && this.vertIndexes[key])
+			{
+				for(let vi of this.vertIndexes[key])
+				{
+					geometry.attributes.position.array[(vi*3)+0]=vertex.position.x;						
+					geometry.attributes.position.array[(vi*3)+1]=vertex.position.y;						
+					geometry.attributes.position.array[(vi*3)+2]=vertex.position.z;						
+				}
+			}
+		}
 
 		const face = new THREE.Mesh( geometry, Face.normalMaterial ) ;
 		//face.lookAt(new THREE.Vector3(0,-1,0))
@@ -1555,16 +1628,29 @@ class Face extends Entity{
 		face.userData.faceId=this.id
 		this.renderObject=face;
 	}
-	updateRenderObject()
+	updateRenderObject(recreate=false)
 	{
-		this.createRenderObject()
+		if(recreate)
+			this.createRenderObject()
 
 		if(this.renderObject && this.renderObject.geometry)
-		{
-			// this.renderObject.geometry.attributes.instanceStart.array[0]=this.start.position.x;
-			// this.renderObject.geometry.needsUpdate=true;
-			// this.renderObject.geometry.attributes.instanceStart.needsUpdate=true;
-			// this.renderObject.geometry.computeBoundingBox();
+		{ 
+			for(let key of Object.keys(this.vertIndexes))
+			{
+				let vertex=Vertex.byId[key]
+				if(vertex && this.vertIndexes[key])
+				{
+					for(let vi of this.vertIndexes[key])
+					{
+						this.renderObject.geometry.attributes.position.array[(vi*3)+0]=vertex.position.x;						
+						this.renderObject.geometry.attributes.position.array[(vi*3)+1]=vertex.position.y;						
+						this.renderObject.geometry.attributes.position.array[(vi*3)+2]=vertex.position.z;						
+					}
+				}
+			}
+			this.renderObject.geometry.needsUpdate=true;
+			this.renderObject.geometry.attributes.position.needsUpdate=true;
+			this.renderObject.geometry.computeBoundingBox();
 			
 		}
 	}
@@ -1656,7 +1742,7 @@ class Edge extends Entity{
 		if(this.getLoopCount()>1)
 		{
 			this.lineWidth=1
-			this.updateRenderObject();
+			this.updateRenderObject(true);
 		}
 	}
 	removeLoopRef(edge){
@@ -1664,7 +1750,7 @@ class Edge extends Entity{
 		if(this.getLoopCount()<1)
 		{
 			this.lineWidth=2
-			this.updateRenderObject();
+			this.updateRenderObject(true);
 		}
 	}
 	getLoopCount()
@@ -2849,6 +2935,352 @@ class LineTool {
 	}
 
 }
+class RectTool {
+
+	constructor(  ) {
+		//super( );
+
+		//const geometry = new THREE.BufferGeometry ();
+		const lineHelperVertices = [];
+		lineHelperVertices.push(
+			new THREE.Vector3( 0, 0, 0 ),
+			new THREE.Vector3( 0, 0, 0 ),
+		);
+		const geometry =new THREE.BufferGeometry().setFromPoints( lineHelperVertices );
+		//geometry.setAttribute('position', new THREE.Float32BufferAttribute(lineHelperVertices, 3));
+		geometry.needsUpdate=true;
+		//geometry.computeLineDistances();
+	
+        const dot = new RectHelper(5)     
+        this.dot=dot;
+        this.dot.visible=false;
+
+		const shapeHelper = new RectHelper(5)     
+        this.shapeHelper=shapeHelper;
+		//this.shapeHelper.lookAt(new THREE.Vector3(1,0,0))
+        this.shapeHelper.visible=false;
+
+
+		this.lineHelper = new THREE.Line( geometry,  solidLineMaterial );
+		this.lineHelper.visible=false;
+
+	}
+
+	//line width via shaders example
+	//https://codepen.io/prisoner849/pen/wvdBerm
+
+	activate()
+	{
+		//console.log("LineTool.activate")
+		editor.view.container.dom.style.cursor="crosshair"
+		this.mouseIp=new InputPoint()
+		this.firstIp= new InputPoint();
+	}
+	deactivate()
+	{
+		//console.log("LineTool.deactivate")
+		editor.view.container.dom.style.cursor="default"
+		if(this.dot)
+			this.dot.visible=false;
+		//view.invalidate
+	}
+	cancel()
+	{
+		this.firstIp.clear();
+		//console.log("LineTool.onMouseUp:RightButton")
+		this.lineHelper.visible=false;
+		this.shapeHelper.visible=false;
+
+		if(this.tempAxis){
+			window.editor.model.entities.inferSet.remove(this.tempAxis)
+			this.tempAxis=null;
+		}
+
+		editor.view.render()
+	}
+	onMouseUp(event,position,view)
+	{
+		//console.log("onMouseDown:"+[event,position,view]) 
+	}
+	onKeyDown(event)
+	{
+		if(event.keyCode==16 && !event.repeat)
+			this.mouseIp.lockInfer();
+	}
+	onKeyUp(event)
+	{
+		if(event.keyCode==16)
+			this.mouseIp.unlockInfer();
+	}
+	onMouseDown(event,position,view)
+	{
+		//console.log("LineTool.onMouseDown:"+event.button)
+
+		if(event.button==1)
+		{
+			return;//do nothing with middle mouse 
+		}
+
+		if(event.button==2)//right button=cancel
+			{
+				this.cancel();
+				return;
+			}
+		if(!this.firstIp.viewCursorValid){
+			this.firstIp.pick(view,position.x,position.y)
+			this.lineHelper.visible=true;
+			this.shapeHelper.visible=true;
+
+			//console.log(position)
+			this.tempAxis=window.editor.model.entities.inferSet.addAxis(this.firstIp.viewCursor.position);
+			return;
+		}else
+		{
+			this.mouseIp.pick(view,position.x,position.y)
+			if(this.mouseIp.viewCursorValid)
+			{
+				//make edge
+				//console.log("MakeEdge:"+[this.firstIp.viewCursor.position,this.mouseIp.viewCursor.position])
+				// const edge=new Edge(new Vertex(this.firstIp.viewCursor.position.clone()),
+				// 					new Vertex(this.mouseIp.viewCursor.position.clone()))
+
+
+
+				//let edge=
+			let va=new THREE.Vector3(this.shapeHelper.geometry.attributes.position.array[0],
+				this.shapeHelper.geometry.attributes.position.array[1],
+				this.shapeHelper.geometry.attributes.position.array[2]);
+
+			let vb=new THREE.Vector3(this.shapeHelper.geometry.attributes.position.array[3],
+					this.shapeHelper.geometry.attributes.position.array[4],
+					this.shapeHelper.geometry.attributes.position.array[5]);
+	
+			let vc=new THREE.Vector3(this.shapeHelper.geometry.attributes.position.array[6],
+						this.shapeHelper.geometry.attributes.position.array[7],
+						this.shapeHelper.geometry.attributes.position.array[8]);
+
+			let vd=new THREE.Vector3(this.shapeHelper.geometry.attributes.position.array[9],
+						this.shapeHelper.geometry.attributes.position.array[10],
+						this.shapeHelper.geometry.attributes.position.array[11]);
+				
+			// view.editor.model.entities.addEdge(va,vb);
+			// view.editor.model.entities.addEdge(vb,vc);
+			// view.editor.model.entities.addEdge(vc,vd);
+			// view.editor.model.entities.addEdge(vd,va);
+
+			view.editor.model.entities.addEdge(va,vd);
+			view.editor.model.entities.addEdge(vd,vc);
+			view.editor.model.entities.addEdge(vc,vb);
+			view.editor.model.entities.addEdge(vb,va);
+
+				//view.editor.execute( new AddObjectCommand(view.editor, edge.renderObject ) );
+				if(this.mouseIp.viewCursorInferString=="On Endpoint" || this.mouseIp.viewCursorInferString=="On Edge")
+					this.cancel();
+				else
+					this.firstIp.copy(this.mouseIp);				
+
+				// var iraycaster = new THREE.Raycaster();
+				// iraycaster.linePrecision = 0.00001;
+
+				// //get ray dist to other edges.
+				// iraycaster.set( this.firstIp.viewCursor.position.clone(), this.mouseIp.viewCursor.position.clone().sub(this.firstIp.viewCursor.position).normalize() );
+				// //console.log( iraycaster.intersectObjects( objects ));
+				// var objects = view.scene.children;
+				// var segIntersects = iraycaster.intersectObjects( objects );
+				// if ( segIntersects.length > 0 ) {
+				// 	for (var i = 0, len = segIntersects.length; i < len; i++) {
+				// 		var intersect = segIntersects[ i ];
+				// 		var inferedPoint = intersect.point; //on line
+				// 		console.log(inferedPoint);
+				// 		var irayPoint=iraycaster.ray.at(intersect.distance,new THREE.Vector3(0, 0, - 1));
+				// 		console.log(irayPoint);
+				// 		var dist= inferedPoint.distanceTo(irayPoint);	
+				// 		console.log(dist);
+				// 	}
+				// }
+
+				//this.firstIp.clear();
+			}
+			if(this.tempAxis){
+				window.editor.model.entities.inferSet.remove(this.tempAxis)
+				this.tempAxis=null;
+			}
+		}
+
+		//console.log(this.mouseIp.viewCursorInferString);
+		//console.log(this.mouseIp.viewCursor.position);
+		view.render();
+		//console.log("onMouseUp:"+[event,position,intersects.length])
+	}
+	onMouseMove(event,position,view)
+	{
+
+		this.mouseIp.pick(view,position.x,position.y)
+		view.viewportInfo.setInferText(this.mouseIp.viewCursorInferString);
+		
+		if(this.dot)
+		{
+			let unpos=this.mouseIp.viewCursor.position.clone().project(view.camera);
+			unpos.x = (( unpos.x ) * editor.view.container.dom.offsetWidth / 2);
+			unpos.y = (( unpos.y ) * editor.view.container.dom.offsetHeight / 2);
+			unpos.z = 0;
+
+			this.dot.position.copy(unpos)
+			if(this.mouseIp.viewCursorInferString=="On Endpoint")
+				this.dot.material.color.set(0x00ffff)
+			else
+				this.dot.material.color.set(0x990000)
+
+			if(this.mouseIp.viewCursorInferString=="On Ground" || this.mouseIp.viewCursorInferString=="Nothing") 
+				this.dot.visible=false;
+			else
+				this.dot.visible=true;
+		}
+
+		//console.log("onMouseMove")
+		if(this.firstIp.viewCursorValid){
+			if(this.shapeHelper && this.shapeHelper.visible){
+				this.shapeHelper.geometry.attributes.position.array[0]=this.firstIp.viewCursor.position.x;
+				this.shapeHelper.geometry.attributes.position.array[1]=this.firstIp.viewCursor.position.y;
+				this.shapeHelper.geometry.attributes.position.array[2]=this.firstIp.viewCursor.position.z;
+
+			this.shapeHelper.geometry.attributes.position.array[3]=this.firstIp.viewCursor.position.x;
+			this.shapeHelper.geometry.attributes.position.array[4]=this.firstIp.viewCursor.position.y;
+			this.shapeHelper.geometry.attributes.position.array[5]=this.mouseIp.viewCursor.position.z;
+
+				this.shapeHelper.geometry.attributes.position.array[6]=this.mouseIp.viewCursor.position.x;
+				this.shapeHelper.geometry.attributes.position.array[7]=this.mouseIp.viewCursor.position.y;
+				this.shapeHelper.geometry.attributes.position.array[8]=this.mouseIp.viewCursor.position.z;
+
+			this.shapeHelper.geometry.attributes.position.array[9]=this.mouseIp.viewCursor.position.x;
+			this.shapeHelper.geometry.attributes.position.array[10]=this.firstIp.viewCursor.position.y;
+			this.shapeHelper.geometry.attributes.position.array[11]=this.firstIp.viewCursor.position.z;
+
+				this.shapeHelper.geometry.attributes.position.array[12]=this.firstIp.viewCursor.position.x;
+				this.shapeHelper.geometry.attributes.position.array[13]=this.firstIp.viewCursor.position.y;
+				this.shapeHelper.geometry.attributes.position.array[14]=this.firstIp.viewCursor.position.z;
+			
+				//color based on axis dir
+				if(Math.abs(this.firstIp.viewCursor.position.x-this.mouseIp.viewCursor.position.x)<0.00001 && 
+					Math.abs(this.firstIp.viewCursor.position.y-this.mouseIp.viewCursor.position.y)<0.00001)
+					{
+						this.shapeHelper.material.color.set(0x00ff00)
+						//console.log("green")
+					}
+					else if(Math.abs(this.firstIp.viewCursor.position.x-this.mouseIp.viewCursor.position.x)<0.00001 && 
+						Math.abs(this.firstIp.viewCursor.position.z-this.mouseIp.viewCursor.position.z)<0.00001)
+					{
+						this.shapeHelper.material.color.set(0x0000ff)
+						//console.log("blue")
+					}
+					else if(Math.abs(this.firstIp.viewCursor.position.y-this.mouseIp.viewCursor.position.y)<0.00001 && 
+						Math.abs(this.firstIp.viewCursor.position.z-this.mouseIp.viewCursor.position.z)<0.00001)
+					{
+						this.shapeHelper.material.color.set(0xff0000)
+						//console.log("red"+[Math.abs(this.firstIp.viewCursor.position.y-this.mouseIp.viewCursor.position.y),Math.abs(this.firstIp.viewCursor.position.z-this.mouseIp.viewCursor.position.z)])
+					}
+					else
+					{
+						this.shapeHelper.material.color.set(0x000000)
+						//console.log("black")
+						//console.log("off red"+[Math.abs(this.firstIp.viewCursor.position.y-this.mouseIp.viewCursor.position.y),Math.abs(this.firstIp.viewCursor.position.z-this.mouseIp.viewCursor.position.z)])
+	
+					}
+	
+	
+				this.shapeHelper.computeLineDistances()
+				this.shapeHelper.geometry.attributes.position.needsUpdate=true;
+
+			}
+			if(this.lineHelper && this.lineHelper.visible){
+				this.lineHelper.geometry.attributes.position.array[0]=this.firstIp.viewCursor.position.x;
+				this.lineHelper.geometry.attributes.position.array[1]=this.firstIp.viewCursor.position.y;
+				this.lineHelper.geometry.attributes.position.array[2]=this.firstIp.viewCursor.position.z;
+				this.lineHelper.geometry.attributes.position.array[3]=this.mouseIp.viewCursor.position.x;
+				this.lineHelper.geometry.attributes.position.array[4]=this.mouseIp.viewCursor.position.y;
+				this.lineHelper.geometry.attributes.position.array[5]=this.mouseIp.viewCursor.position.z;
+	
+				//color based on axis dir
+				if(Math.abs(this.firstIp.viewCursor.position.x-this.mouseIp.viewCursor.position.x)<0.00001 && 
+					Math.abs(this.firstIp.viewCursor.position.y-this.mouseIp.viewCursor.position.y)<0.00001)
+					{
+						this.lineHelper.material.color.set(0x00ff00)
+						//console.log("green")
+					}
+					else if(Math.abs(this.firstIp.viewCursor.position.x-this.mouseIp.viewCursor.position.x)<0.00001 && 
+						Math.abs(this.firstIp.viewCursor.position.z-this.mouseIp.viewCursor.position.z)<0.00001)
+					{
+						this.lineHelper.material.color.set(0x0000ff)
+						//console.log("blue")
+					}
+					else if(Math.abs(this.firstIp.viewCursor.position.y-this.mouseIp.viewCursor.position.y)<0.00001 && 
+						Math.abs(this.firstIp.viewCursor.position.z-this.mouseIp.viewCursor.position.z)<0.00001)
+					{
+						this.lineHelper.material.color.set(0xff0000)
+						//console.log("red"+[Math.abs(this.firstIp.viewCursor.position.y-this.mouseIp.viewCursor.position.y),Math.abs(this.firstIp.viewCursor.position.z-this.mouseIp.viewCursor.position.z)])
+					}
+					else
+					{
+						this.lineHelper.material.color.set(0x000000)
+						//console.log("black")
+						//console.log("off red"+[Math.abs(this.firstIp.viewCursor.position.y-this.mouseIp.viewCursor.position.y),Math.abs(this.firstIp.viewCursor.position.z-this.mouseIp.viewCursor.position.z)])
+	
+					}
+	
+	
+				this.lineHelper.computeLineDistances()
+				this.lineHelper.geometry.attributes.position.needsUpdate=true;
+
+			}
+
+		}
+		//console.log("onMouseDown:"+[event,position,view]) 
+	}		
+	resume()
+	{}
+	suspend()
+	{}
+	onCancel()
+	{}
+	onLbutton(){}
+	onSetCursor(){}
+	draw(){}
+	updateUi(){}
+	resetTool(){}
+	pickedPoints(){}
+	drawPreview(){}
+	createEdge(){}
+	render(renderer,camera)
+	{
+		if(this.lineHelper)
+			renderer.render( this.lineHelper, camera )
+
+		if(this.shapeHelper)
+			renderer.render( this.shapeHelper, camera )
+		//if(this.mouseIp && this.mouseIp.viewCursorValid)	
+		//	renderer.render( this.mouseIp.viewCursor, camera )		
+
+		if(this.mouseIp.lastInferObject)
+			renderer.render( this.mouseIp.lastInferObject, camera )
+			
+		if(this.dot && this.dot.visible)
+            renderer.render(this.dot,editor.view.uiCamera);	
+
+
+			
+	}
+
+	//activate
+	//active_model.select_tool(new LineTool())
+
+	dispose() {
+
+		//this.geometry.dispose();
+		//this.material.dispose();
+
+	}
+
+}
 
 class MoveTool {
 
@@ -3163,17 +3595,34 @@ class PushTool {
 					{
 						lv.position.add(new THREE.Vector3(0,0.1,0))
 					}
-					//newFace.updateRenderObject();
-					newFace.renderObject.geometry.translate(0,0.1,-0.0)
+					for(let edge of this.lidFace.loop.edges)
+					{
+						if(edge && edge.renderObject)
+							edge.updateRenderObject()
+					}
+					newFace.updateRenderObject();
+					//newFace.renderObject.geometry.translate(0,0.1,-0.0)
 					for(var edge of newFace.loop.edges)
 					{
-						let bottomEdge=new Edge(edge.start.copy(),edge.end.copy())
-						let sideEdgeA=new Edge(edge.start,bottomEdge.end)
-						let sideEdgeB=new Edge(edge.end,bottomEdge.start)
-						//let sideLoop=new Loop([edge,sideEdgeA,bottomEdge,sideEdgeB])
-						//let sideFace=new Face(sideLoop)
+						let bstart=edge.start.copy()
+						bstart.position.sub(new THREE.Vector3(0,0.1,0))
+						let bend=edge.end.copy()
+						bend.position.sub(new THREE.Vector3(0,0.1,0))
+						let bottomEdge=new Edge(bend,bstart)
+						let sideEdgeA=new Edge(edge.end,bottomEdge.start)
+
+						let sideEdgeB=new Edge(edge.start,bottomEdge.end)
+						let sideLoop=new Loop([edge,sideEdgeA,bottomEdge,sideEdgeB])
+
+						bottomEdge.doSelect(redEdgeMaterial)
+						sideEdgeA.doSelect(redEdgeMaterial)
+						sideEdgeB.doSelect(redEdgeMaterial)
+
+
+						let sideFace=new Face(sideLoop)
+
 						//bottomEdges.push()
-						//this.sideFaces.push(sideFace)
+						this.sideFaces.push(sideFace)
 					}
 					//make face from lid edge, copy of lid edge, and two new edges from top to bottom
 					//extrudeEdges.push(new Edge(lidVerts[],lidVerts[].copyNoMerge))
@@ -3329,7 +3778,25 @@ class PushTool {
 			renderer.render( this.lineHelper, camera )
 
 		if(this.lidFace)
+		{
 			renderer.render( this.lidFace.renderObject, camera )
+			for(let edge of this.lidFace.loop.edges)
+			{
+				if(edge && edge.renderObject)
+					renderer.render( edge.renderObject, camera )
+			}
+		}
+		if(this.sideFaces)
+		{
+			for(let face of this.sideFaces){
+				renderer.render( face.renderObject, camera )
+				for(let edge of face.loop.edges)
+				{
+					if(edge && edge.renderObject)
+						renderer.render( edge.renderObject, camera )
+				}
+			}
+		}
 		//if(this.mouseIp && this.mouseIp.viewCursorValid)	
 		//	renderer.render( this.mouseIp.viewCursor, camera )		
 			
@@ -3385,4 +3852,4 @@ function findPlaneFromPoints(points)
 		return null;
 	}
 }
-export { LineTool,MoveTool,SelectTool,Entities,Selection, Model, InputPoint, RemoveEdgeCommand,RectHelper,ArrowHelper, Loop, Face,PushTool };
+export { LineTool,MoveTool,SelectTool,Entities,Selection, Model, InputPoint, RemoveEdgeCommand,RectHelper,ArrowHelper, Loop, Face,PushTool, RectTool };
