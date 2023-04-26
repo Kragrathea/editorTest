@@ -98,6 +98,11 @@ class Vertex extends Entity{
 		//todo should only be edge?
 		this.connectionIds.delete(otherEntity.id); 
 	}
+	isConnectedTo(edge)//not tested yet
+	{
+		if(this.connectionIds.has(edge.id))
+			return;
+	}
 	allEdges()
 	{
 		//let edges=[]
@@ -208,11 +213,12 @@ class Model extends THREE.Group{
 			console.log(l)
 
 	}
-	saveHistory(name=null)
+	saveHistory(name=null,overwrite=false)
 	{
 		if(name==null)
 			name="default";
-		localStorage.setItem("history."+name, JSON.stringify(this.commandHistory));
+		if(overwrite || localStorage.getItem("history."+name)==null )
+			localStorage.setItem("history."+name, JSON.stringify(this.commandHistory));
 	}
 	replayHistory(name=null)
 	{
@@ -798,6 +804,7 @@ class Entities extends THREE.Group{
 
 				window.editor.execute( new AddEdgeCommand(window.editor, newEdge ) );	
 
+	//if two loops share 1 edge and edges go same dir in both loops then one is inner			
 				let loops=Loop.findAllLoops(newEdge)
 				for(var loop of loops)
 				{
@@ -1152,14 +1159,47 @@ class Loop extends Entity
 		this.deleted=true;
 
 	}
+	containsLoop(otherLoop)
+	{
+		let intersection = this.edges.filter(e =>e!=null&& otherLoop.edges.includes(e));
+	}
+	edgeReversedIn(edge)
+	{
+		let edgeIndex=this.edges.indexOf(edge)
+		if(edgeIndex<0)
+			console.log("edgeReversedIn cant find edge:"+edge.id)
+		else{		
+			let nextEdge=this.edges[(edgeIndex+1)%this.edges.length]
+			
+			if(edge.end.isConnectedTo(nextEdge))
+				return false
+			if(edge.start.isConnectedTo(nextEdge))
+				return true
+		}
+		alert("edgeReversedIn failed")
+		return null;//shouldn't get here.
+	
+	}
 	findExistingLoop()
 	{
-		let aLoopRefs=Object.values(this.edges[0].loopRefs); 
+		let aLoopRefs=Object.values(this.edges[0].loopRefs);
 		let bLoopRefs=Object.values(this.edges[1].loopRefs); 
-
+		
 		let intersection = aLoopRefs.filter(x =>x!=null&& bLoopRefs.includes(x));
 		if(intersection.length>2)
 			alert("classify error")
+
+		// if(intersection.length==1)
+		// {	
+		// 	this.containsLoop(intersection[0])
+		// }
+		// for(let edge of this.edges){
+		// 	let bLoopRefs=Object.values(edge.loopRefs); 
+		// 	let intersection = aLoopRefs.filter(x =>x!=null&& bLoopRefs.includes(x));
+		// 	if(intersection.length>2)
+		// 		alert("classify error")
+
+		// }
 
 		if(intersection.length==1)
 			return intersection[0]
@@ -1349,14 +1389,22 @@ class Loop extends Entity
 		let firstPlane=new THREE.Plane(planeDir,0)
 		let loopEdges=[]
 		let curNode=firstEdge.end
-		if(direction>0)
-			curNode=firstEdge.start;
+let endNode=firstEdge.start;
+		if(direction>0){
+			curNode=firstEdge.start
+			endNode=firstEdge.end;
+		}
 		let best=Loop.findBest(firstPlane,firstEdge,curNode,direction)
 
 		let loop=[]
 		loop.push(best)
 		while(best!=null){
 			if(best==firstEdge){
+				if(curNode!=endNode)//test that the loop comes back but on wrong end of edge. must be opisite first.
+					{
+						console.log("Bad loop end direction Detected")
+						return []
+					}
 				console.log("Good Loop Detected")
 				return loop;
 				break
@@ -1542,12 +1590,31 @@ class Face extends Entity{
 		let verts=[]
 
 		let tempY = new THREE.Vector3(5000, -9934, 8444)
+
 		let pY = new THREE.Vector3()
-		this.loop.plane.projectPoint(tempY, pY)
-		let origin=new Vector3(10,30,50);
-		this.loop.plane.coplanarPoint(origin)
+		let ti=0;
+		while(pY.lengthSq()<0.00001){
+			tempY=this.loop.verts[ti++].position.clone()
+			this.loop.plane.projectPoint(tempY, pY)
+		}
+
+		if(pY.lengthSq()<0.00001)
+			alert("Bad pY in Face createRenderObject")
 		pY.normalize()
-		let pX = new THREE.Vector3().crossVectors(pY, this.loop.plane.normal)
+
+
+		let origin=new Vector3();//will be filled in.
+		this.loop.plane.coplanarPoint(origin) //NOTE:Loads a coplaner point into origin.
+//origin=new Vector3(0,0,0);
+//pY=new Vector3(0,0,1);
+
+//origin=this.loop.verts[0].position;
+//pY=this.loop.verts[1].position;
+
+		let normal = this.loop.plane.normal;
+//normal=new Vector3(0,-1,0)
+		let pX = new THREE.Vector3().crossVectors(pY, normal)
+//pX=new Vector3(1,0,0);
 		pX.normalize()
 
 		//todo. project loop verts onto plane
@@ -1556,17 +1623,27 @@ class Face extends Entity{
 			this.loop.plane.projectPoint(vert.position,target)
 
 			let x = target.clone().projectOnVector(pX).distanceTo(origin)
-			if(!target.clone().projectOnVector(pX).normalize().equals(pX)){
+			if(target.clone().projectOnVector(pX).normalize().distanceTo(pX)<0.00001){
 				x = -x
 			}
 
 			let y = target.clone().projectOnVector(pY).distanceTo(origin)
-			if(!target.clone().projectOnVector(pY).normalize().equals(pY)){
+			if(target.clone().projectOnVector(pY).normalize().distanceTo(pY)<0.00001){
 				y = -y
 			}
-			//let v=new THREE.Vector2(x,y);
+			let v=new THREE.Vector2(-x,-y);
 
-			let v=new THREE.Vector2(target.x,target.z);
+			//test
+			// let vt=new THREE.Vector2(target.x,target.z);
+			// console.log("foobar Loop info:"+[JSON.stringify(this.loop.plane),this.loop.isCw])
+			// if(v.distanceTo(vt)>0.0001)
+			// {
+			// 	console.log("foobar Unproj doesn't match"+JSON.stringify([v,vt]))
+			// }else
+			// {
+			// 	console.log("foobar Good Unproj"+JSON.stringify([v,vt]))
+			// }
+
 
 			v.userData=vert.id;
 			verts.push(v)

@@ -119,15 +119,15 @@ class SelectTool {
                     let loops=Loop.findAllLoops(firstEdge)
                     for(var loop of loops)
                     {
-                        let mat =editor.view.selection.yellowMaterial;
-                        if(loop.classify())
-                            mat=editor.view.selection.redMaterial
+                        // let mat =editor.view.selection.yellowMaterial;
+                        // if(loop.classify())
+                        //     mat=editor.view.selection.redMaterial
                         for(var edge of loop.edges)
                         {
                             if(loop.isLeft)
-                                editor.view.selection.add(edge,mat)
+                                editor.view.selection.add(edge,editor.view.selection.yellowMaterial)
                             else
-                                editor.view.selection.add(edge,mat)
+                                editor.view.selection.add(edge,editor.view.selection.redMaterial)
                         }
                         
                     }
