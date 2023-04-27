@@ -101,7 +101,9 @@ class Vertex extends Entity{
 	isConnectedTo(edge)//not tested yet
 	{
 		if(this.connectionIds.has(edge.id))
-			return;
+			return true;
+		else
+			return false;
 	}
 	allEdges()
 	{
@@ -809,6 +811,21 @@ class Entities extends THREE.Group{
 				for(var loop of loops)
 				{
 					//editor.model.entities.addFace(loop)
+					let otherLoops=loop.findCommonLoops()
+					for(let ol of otherLoops)
+					{
+						let result=ol.classifyOtherLoop(loop)
+						//let delLoop=loop.findExistingLoop();
+						if(result==='inside')
+						{
+							console.log("Remove existing face:")
+							//console.log(delLoop)
+							editor.model.entities.removeEntity(ol.face)
+						}
+
+						console.log("classifyOtherLoop:"+result)
+					}
+
 					window.editor.execute( new AddFaceCommand(window.editor, loop ) );	
 
 				}
@@ -1159,6 +1176,19 @@ class Loop extends Entity
 		this.deleted=true;
 
 	}
+	static testAll()
+	{
+		console.log("Testing all loops...")
+		for(let loop of Object.values(Loop.byId))
+		{
+			if(loop==null)
+				console.log("Loops unremoved key")
+			if(loop)
+			{
+
+			}
+		}
+	}
 	containsLoop(otherLoop)
 	{
 		let intersection = this.edges.filter(e =>e!=null&& otherLoop.edges.includes(e));
@@ -1206,8 +1236,92 @@ class Loop extends Entity
 		else
 			return null;		
 	}
+	static classifyEdge(commonEdge)
+	{
+		console.log("Classify edge:"+commonEdge.id)
+		for(let loop of Object.values(commonEdge.loopRefs)){
+			console.log("Loop:",[loop.id,loop.edgeReversedIn(commonEdge),JSON.stringify(loop.plane.normal)])
+		}
+
+	}
+	findCommonLoops()
+	{
+		let allLoops={}
+		for(let edge of this.edges)
+		{
+			for(let loop of Object.values(edge.loopRefs))
+				if(loop && loop!=this)//dont find self
+					allLoops[loop.id]=loop
+		}
+		console.log("Common loops:"+Object.keys(allLoops).length)
+		return Object.values(allLoops)
+
+	}
+	classifyOtherLoop(otherLoop)
+	{
+		let aLoopEdges=this.edges; 
+		let bLoopEdges=otherLoop.edges; 
+
+		//find a common edge
+		let commonEdges = aLoopEdges.filter(x =>x!=null&& bLoopEdges.includes(x));
+		console.log("classifyOtherLoop common edges:"+commonEdges.length)
+		if(commonEdges.length<1)
+			return("unrelated")
+		//if no common then unrelated
+		let commonEdge=commonEdges[0]
+		console.log("Loop:",[this.id,this.edgeReversedIn(commonEdge),JSON.stringify(this.plane.normal)])
+		console.log("Other Loop:",[otherLoop.id,otherLoop.edgeReversedIn(commonEdge),JSON.stringify(otherLoop.plane.normal)])
+
+		//if(normals !the same)
+			//different plane
+		if(this.edgeReversedIn(commonEdge)===otherLoop.edgeReversedIn(commonEdge))
+			return "inside"
+		else
+			return "outside"
+		// and commonEdge goes same direction)
+		//then inside
+		//else adjacent 
+	}
 	classify()
 	{
+		console.log("Classify loop:"+this.id)
+		let allLoops={}
+		for(let edge of this.edges)
+		{
+			for(let loop of Object.values(edge.loopRefs))
+				allLoops[loop.id]=loop
+		}
+		console.log("Common loops:"+Object.keys(allLoops).length)
+		for(let otherLoop of Object.values(allLoops)){
+			if(otherLoop==this)
+				continue;
+			let aLoopEdges=this.edges; 
+			let bLoopEdges=otherLoop.edges; 
+
+			let commonEdges = aLoopEdges.filter(x =>x!=null&& bLoopEdges.includes(x));
+			if(commonEdges.length<1)
+				{
+					console.log("No common edges")
+					return;
+				}
+
+			let ce = commonEdges[0]
+			//let ce = commonEdge;
+			//for(let ce of commonEdges)
+			{
+				if(this.edgeReversedIn(ce))
+					console.log("A is reversed in A")
+				else	
+					console.log("A is NOT reversed in A")
+
+				if(otherLoop.edgeReversedIn(ce))
+					console.log("A is reversed in B")
+				else	
+					console.log("A is NOT reversed in b")
+			}
+		}
+		return;
+		
 		//foreach edge
 		//if edge has no loopRefs then not part
 		//if edge has loop ref && loop normal same as this norma
@@ -1231,6 +1345,8 @@ class Loop extends Entity
 	}
 	insertEdge(oldEdge,newEdge,afterVert,beforeVert,newEnd)
 	{
+		//if(this.edgeReversedIn(oldEdge))
+		//	console.log("reversed")
 		let afterIndex=this.verts.indexOf(afterVert)
 		let beforeIndex=this.verts.indexOf(beforeVert)
 		if(afterIndex<0 || beforeIndex<0 || afterIndex==beforeIndex)
@@ -1238,16 +1354,15 @@ class Loop extends Entity
 			console.log("Loop insertEdge failed to find insert location")
 			return;
 		}
+		let afterEdgeIndex=this.edges.indexOf(oldEdge)+1
 		if(afterIndex<beforeIndex)
 		{
-			let edgeIndex=beforeIndex*2
-			this.edges.splice(edgeIndex,0,newEdge)
+			this.edges.splice(afterEdgeIndex,0,newEdge)
 			this.verts.splice(beforeIndex,0,newEnd)
 			newEdge.addLoopRef(this)
 
 		}else{
-			let edgeIndex=afterIndex*2
-			this.edges.splice(edgeIndex,0,newEdge)
+			this.edges.splice(afterEdgeIndex,0,newEdge)
 			this.verts.splice(afterIndex,0,newEnd)
 			newEdge.addLoopRef(this)
 		}
@@ -1520,13 +1635,13 @@ class Face extends Entity{
 		super()
 		this.type="Face"
 
-		let delLoop=loop.findExistingLoop();
-		if(delLoop)
-		{
-			console.log("Remove existing face:")
-			console.log(delLoop)
-			editor.model.entities.removeEntity(delLoop.face)
-		}
+		// let delLoop=loop.findExistingLoop();
+		// if(delLoop)
+		// {
+		// 	console.log("Remove existing face:")
+		// 	console.log(delLoop)
+		// 	editor.model.entities.removeEntity(delLoop.face)
+		// }
 
 
 		loop.make(this);//registers loop with all edges

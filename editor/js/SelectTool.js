@@ -116,9 +116,12 @@ class SelectTool {
 				let firstEdge= view.editor.model.entities.findEdge(firstObject.object.userData.edgeId)
                 if(firstEdge)
                 {    
+                    Loop.classifyEdge(firstEdge)
                     let loops=Loop.findAllLoops(firstEdge)
                     for(var loop of loops)
                     {
+                        //if(loop.isLeft)
+                        //    loop.classify()
                         // let mat =editor.view.selection.yellowMaterial;
                         // if(loop.classify())
                         //     mat=editor.view.selection.redMaterial
