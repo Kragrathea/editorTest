@@ -135,7 +135,19 @@ class SelectTool {
                         
                     }
                 }
-			}else{
+			}else if(firstObject.object.userData.faceId)
+			{
+				let face= Face.byId[firstObject.object.userData.faceId]
+                if(face)
+                {    
+                    let loop=face.loop;
+                    for(var edge of loop.edges)
+                    {
+                        editor.view.selection.add(edge)
+                    }
+                    editor.view.render();
+                }
+            }else{
 				//view.signals.intersectionsDetected.dispatch( intersects );
 			}
 		}else{

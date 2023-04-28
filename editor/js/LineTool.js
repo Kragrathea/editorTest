@@ -14,6 +14,10 @@ class ToolManager{
 	constructor(editor) {
 		this.editor=editor;
 		activeTool=null;
+
+		//Select,Erase, Line, Rect, Circle/ngon, arc(s), freedraw
+		//Move, rotate, scale
+		//Push,outline, follow
 		
 		editor.signals.toolChanged.add( function (name) {
 			console.log("ToolManager.toolChanged")
@@ -29,8 +33,9 @@ class ToolManager{
 
 class Entity{
 	static byId={}//should be weak set
+	static idIndex=10;
 	constructor() {
-		this.id=THREE.MathUtils.generateUUID();
+		this.id=Entity.idIndex++;//THREE.MathUtils.generateUUID();
 		Entity.byId[this.id]=this;
 	}
 }
@@ -333,6 +338,9 @@ class SplitEdgeCommand extends Command {
 		this.edge.end=newVert//new vert should already be connected right?
 		newVert.connect(this.edge);
 
+		this.edge.end.connect(newEdge);//redundant?
+
+
 		if(this.edge.start.position.distanceTo(this.edge.end.position)<0.0001)
 		{
 			console.log("****ZERO LENGTH EDGE in SPLIT");
@@ -345,7 +353,10 @@ class SplitEdgeCommand extends Command {
 		for(var loop of loops)
 		{
 			if(loop && !loop.deleted)
-				loop.insertEdge(this.edge,newEdge,this.edge.start,oldEnd,newVert)
+				//if(!loop.edgeReversedIn(this.edge))
+					loop.insertEdge(this.edge,newEdge,this.edge.start,oldEnd,newVert)
+
+Loop.testAll();
 		}
 		
 		this.newEdge=newEdge;
@@ -1150,6 +1161,7 @@ class Loop extends Entity
 	make(face)
 	{
 		this.face=face;
+		this.bound=true;
 		for(var edge of this.edges)
 		{
 			edge.addLoopRef(this)
@@ -1158,6 +1170,7 @@ class Loop extends Entity
 	unmake(face)
 	{
 		this.face=face;
+		this.bound=false;
 		for(var edge of this.edges)
 		{
 			edge.removeLoopRef(this)
@@ -1183,9 +1196,13 @@ class Loop extends Entity
 		{
 			if(loop==null)
 				console.log("Loops unremoved key")
-			if(loop)
+			if(loop && !loop.deleted && loop.bound)
 			{
-
+				for(let edge of loop.edges)
+					if(loop.edgeReversedIn(edge)==null)
+					{
+						console.log("Loop failed reversedIn test:"+loop.id)
+					}
 			}
 		}
 	}
@@ -1206,7 +1223,7 @@ class Loop extends Entity
 			if(edge.start.isConnectedTo(nextEdge))
 				return true
 		}
-		alert("edgeReversedIn failed")
+		//alert("edgeReversedIn failed")
 		return null;//shouldn't get here.
 	
 	}
@@ -1349,23 +1366,91 @@ class Loop extends Entity
 		//	console.log("reversed")
 		let afterIndex=this.verts.indexOf(afterVert)
 		let beforeIndex=this.verts.indexOf(beforeVert)
+
+
+		if(afterIndex>beforeIndex)
+		{
+			let temp=afterIndex;
+			afterIndex=beforeIndex
+			beforeIndex=temp;
+		}
+
 		if(afterIndex<0 || beforeIndex<0 || afterIndex==beforeIndex)
 		{	
 			console.log("Loop insertEdge failed to find insert location")
 			return;
 		}
-		let afterEdgeIndex=this.edges.indexOf(oldEdge)+1
-		if(afterIndex<beforeIndex)
+		if(afterIndex==this.verts.length-1 && beforeIndex==0)
 		{
-			this.edges.splice(afterEdgeIndex,0,newEdge)
-			this.verts.splice(beforeIndex,0,newEnd)
-			newEdge.addLoopRef(this)
+			//if(beforeIndex!=0)
+			//	console.log("insertEdge beforeIndex wrong")
+			this.verts.push(newEnd)
+
+		}else if(beforeIndex==this.verts.length-1 && afterIndex==0)
+		{
+			//if(beforeIndex!=0)
+			//	console.log("insertEdge beforeIndex wrong")
+			this.verts.push(newEnd)
+
+		}else if(beforeIndex==0)
+		{
+
+			alert("insertEdge beforeIndex wrong")
+			//this.verts.unshift(newEnd)
+			//newEdge.addLoopRef(this)	
+
+		}else if(afterIndex<beforeIndex)
+		{
+			this.verts.splice(afterIndex+1,0,newEnd)
 
 		}else{
-			this.edges.splice(afterEdgeIndex,0,newEdge)
-			this.verts.splice(afterIndex,0,newEnd)
-			newEdge.addLoopRef(this)
+			alert("insertEdge vert pos wrong")
 		}
+
+		//find the edge that connects to start
+		let startEdgeIndex=-1
+		let endEdgeIndex=-1
+		for(let edgeIndex=0;edgeIndex<this.edges.length;edgeIndex++)
+		{
+			if(newEdge.start.isConnectedTo(this.edges[edgeIndex]))
+				startEdgeIndex=edgeIndex;
+			if(newEdge.end.isConnectedTo(this.edges[edgeIndex]))
+				endEdgeIndex=edgeIndex;	
+		}
+		if(startEdgeIndex<0 || endEdgeIndex < 0){
+			console.log("insertEdge indexes NOT FOUND")
+			return;
+		}	
+		if(startEdgeIndex>endEdgeIndex)
+		{
+			let temp=startEdgeIndex;
+			startEdgeIndex=endEdgeIndex
+			endEdgeIndex=temp;
+		}
+
+		if(endEdgeIndex==this.edges.length-1 && startEdgeIndex==0)
+		{
+			//if(startEdgeIndex!=0)
+			//	console.log("insertEdge endEdgeIndex wrong")
+			this.edges.push(newEdge)
+
+		}else if(startEdgeIndex==this.edges.length-1 && endEdgeIndex==0)
+		{
+			//if(startEdgeIndex!=0)
+			//	console.log("insertEdge endEdgeIndex wrong")
+			this.edges.push(newEdge)
+
+		}else if(startEdgeIndex<endEdgeIndex)
+		{
+			if(endEdgeIndex-startEdgeIndex!=1)
+				console.log("insertEdge indexes not adjacent")
+			console.log(this.edges[startEdgeIndex+1])
+			this.edges.splice(startEdgeIndex+1,0,newEdge)
+		}else{
+			alert("insertEdge error")
+		}
+
+		newEdge.addLoopRef(this)
 
 	}
 	merge(otherLoop,commonEdge)
@@ -1664,6 +1749,8 @@ class Face extends Entity{
 		
 		let newLoop=new Loop(newLoopEdges);
 		this.loop.unmake();
+		this.loop.deleted=true;
+
 		newLoop.make();
 		newLoop.face=this;
 		this.loop=newLoop
