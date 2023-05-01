@@ -28,7 +28,8 @@ function Toolbar( editor ) {
 	container.add( selectToolButton );
 
 	editor.setTool(new SelectTool());
-	signals.toolChanged.dispatch( 'selectTool' );
+
+	//signals.toolChanged.dispatch( 'selectTool' );
 
 	const lineToolIcon = document.createElement( 'img' );
 	lineToolIcon.title = strings.getKey( 'toolbar/translate' );
@@ -41,11 +42,44 @@ function Toolbar( editor ) {
 
 		console.log("LineToolButton Clicked")
 		editor.setTool(new LineTool());
-		signals.toolChanged.dispatch( 'lineTool' );
+		//signals.toolChanged.dispatch( 'lineTool' );
 		//signals.transformModeChanged.dispatch( 'lineTool' );
 
 	} );
 	container.add( lineToolButton );
+
+	const rectToolIcon = document.createElement( 'img' );
+	rectToolIcon.title = strings.getKey( 'toolbar/translate' );
+	rectToolIcon.src = 'images/rect.svg';
+
+	const rectToolButton = new UIButton();
+	rectToolButton.dom.className = 'Button';
+	rectToolButton.dom.appendChild( rectToolIcon );
+	rectToolButton.onClick( function () {
+
+		console.log("rectToolButton Clicked")
+		editor.setTool(new RectTool());
+		//signals.toolChanged.dispatch( 'rectTool' );
+		//signals.transformModeChanged.dispatch( 'lineTool' );
+
+	} );
+	container.add( rectToolButton );	
+
+	const pushToolIcon = document.createElement( 'img' );
+	pushToolIcon.title = strings.getKey( 'toolbar/translate' );
+	pushToolIcon.src = 'images/extrude.svg';
+	const pushToolButton = new UIButton();
+	pushToolButton.dom.className = 'Button';
+	pushToolButton.dom.appendChild( pushToolIcon );
+	pushToolButton.onClick( function () {
+
+		console.log("pushToolButton Clicked")
+		editor.setTool(new PushTool());
+		//signals.toolChanged.dispatch( 'rectTool' );
+		//signals.transformModeChanged.dispatch( 'lineTool' );
+
+	} );
+	container.add( pushToolButton );		
 
 	// translate / rotate / scale
 
@@ -107,19 +141,23 @@ function Toolbar( editor ) {
 
 		selectToolButton.dom.classList.remove( 'selected' );
 		lineToolButton.dom.classList.remove( 'selected' );
+		rectToolButton.dom.classList.remove( 'selected' );
+		pushToolButton.dom.classList.remove( 'selected' );
 
 		translate.dom.classList.remove( 'selected' );
 		rotate.dom.classList.remove( 'selected' );
 		scale.dom.classList.remove( 'selected' );
 
-		switch ( mode ) {
+		switch ( mode.toLowerCase() ) {
 
-			case 'selectTool': selectToolButton.dom.classList.add( 'selected' ); break;
-			case 'lineTool': lineToolButton.dom.classList.add( 'selected' ); break;
+			case 'selecttool': selectToolButton.dom.classList.add( 'selected' ); break;
+			case 'linetool': lineToolButton.dom.classList.add( 'selected' ); break;
+			case 'recttool': rectToolButton.dom.classList.add( 'selected' ); break;
+			case 'pushtool': pushToolButton.dom.classList.add( 'selected' ); break;
 
-			case 'moveTool': translate.dom.classList.add( 'selected' ); break;
-			case 'rotateTool': rotate.dom.classList.add( 'selected' ); break;
-			case 'scaleTool': scale.dom.classList.add( 'selected' ); break;
+			case 'movetool': translate.dom.classList.add( 'selected' ); break;
+			case 'rotatetool': rotate.dom.classList.add( 'selected' ); break;
+			case 'scaletool': scale.dom.classList.add( 'selected' ); break;
 
 		}
 

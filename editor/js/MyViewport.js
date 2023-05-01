@@ -1039,46 +1039,16 @@ function Viewport( editor ) {
 	function onKeyDown(event)
 	{
 		//console.log("onKeyDown"+event.keyCode)
-		if(event.keyCode==32)
-		{
-			//editor.setTool(new SelectTool());
-		}else if(event.keyCode==76 || event.keyCode==68) //L or D
-		{
-			//editor.setTool(new LineTool());
-		}else{
-			if(editor.activeTool && editor.activeTool.onKeyDown)
-				editor.activeTool.onKeyDown(event)	
-		}		
+		if(editor.activeTool && editor.activeTool.onKeyDown)
+			editor.activeTool.onKeyDown(event)	
 	}
 	window.addEventListener( 'keydown', onKeyDown, false );
-
+	
 	function onKeyUp(event)
 	{
-		//console.log("onKeyUp"+event.keyCode)
-		if(event.keyCode==27)
-		{
-			if(editor.activeTool && editor.activeTool.cancel)
-				editor.activeTool.cancel(event)
-
-		}else if(event.keyCode==32)
-		{
-			editor.setTool(new SelectTool());
-		}else if(event.keyCode==76 || event.keyCode==83) //L or D
-		{
-			editor.setTool(new LineTool());
-		}else if(event.keyCode==77) //m
-		{
-			editor.setTool(new MoveTool());
-		}else if(event.keyCode==80)//p  
-		{
-			editor.setTool(new PushTool());
-		}else if(event.keyCode==82)//r  
-		{
-			editor.setTool(new RectTool());
-		}else{
-			if(editor.activeTool && editor.activeTool.onKeyUp)
-				editor.activeTool.onKeyUp(event)	
-		}		
+		if(editor.toolManager)
+			editor.toolManager.handleOnKeyUp(event)
+	
 	}
 	window.addEventListener( 'keyup', onKeyUp, false );
 	// controls need to be added *after* main logic,

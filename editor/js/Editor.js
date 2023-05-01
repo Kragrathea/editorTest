@@ -6,7 +6,7 @@ import { History as _History } from './History.js';
 import { Strings } from './Strings.js';
 import { Storage as _Storage } from './Storage.js';
 import { Selector } from './Viewport.Selector.js';
-import { Model, Selection, LineTool } from './LineTool.js';
+import { Model, Selection, LineTool, ToolManager } from './LineTool.js';
 import CameraControls from './camera-controls.module.js';
 
 CameraControls.install( { THREE: THREE } );
@@ -141,7 +141,7 @@ function Editor() {
 	this.model=model;
 	this.scene.add(model)
 
-	//this.toolManager=new ToolManager(this);
+	this.toolManager=new ToolManager(this);
 
 }
 
@@ -153,6 +153,7 @@ Editor.prototype = {
 			this.activeTool.deactivate();
 		this.activeTool=newTool;
 		this.activeTool.activate();
+		editor.signals.toolChanged.dispatch( newTool.constructor.name );
 	},
 
 	setScene: function ( scene ) {
