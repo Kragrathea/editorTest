@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-class EditorControls extends THREE.EventDispatcher {
+class xEditorControls extends THREE.EventDispatcher {
 
 	constructor( object, domElement ) {
 
@@ -361,4 +361,4 @@ class EditorControls extends THREE.EventDispatcher {
 
 }
 
-export { EditorControls };
+export { xEditorControls };

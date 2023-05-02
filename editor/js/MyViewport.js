@@ -4,7 +4,7 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 import { UIPanel } from './libs/ui.js';
 
-import { EditorControls } from './EditorControls.js';
+//import { EditorControls } from './EditorControls.js';
 
 import { ViewportCamera } from './Viewport.Camera.js';
 import { ViewportShading } from './Viewport.Shading.js';
@@ -437,7 +437,7 @@ function Viewport( editor ) {
 			const text = new THREE.Mesh( geometry, matDark );
 			text.position.z = - 0;
 			text.lookAt(0,1,0)
-			scene.add( text );
+			sceneHelpers.add( text );
 		}
 		if(true){
 			const message = '10m';
@@ -451,7 +451,7 @@ function Viewport( editor ) {
 			const text = new THREE.Mesh( geometry, matDark );
 			text.position.z = - 0;
 			text.lookAt(0,1,0)
-			scene.add( text );
+			sceneHelpers.add( text );
 		}
 		if(true){
 			const message = '1mm';
@@ -465,7 +465,7 @@ function Viewport( editor ) {
 			const text = new THREE.Mesh( geometry, matDark );
 			text.position.z = - 0;
 			text.lookAt(0,1,0)
-			scene.add( text );
+			sceneHelpers.add( text );
 		}
 	});
 
@@ -1106,7 +1106,7 @@ function Viewport( editor ) {
 
 	signals.editorCleared.add( function () {
 
-		controls.center.set( 0, 0, 0 );
+		//controls.center.set( 0, 0, 0 );
 		render();
 
 	} );

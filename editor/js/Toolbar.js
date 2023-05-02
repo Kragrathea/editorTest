@@ -1,5 +1,5 @@
 import { UIPanel, UIButton, UICheckbox } from './libs/ui.js';
-import { LineTool,MoveTool } from './LineTool.js';
+import { LineTool,MoveTool, RectTool, PushTool } from './LineTool.js';
 import { SelectTool } from './SelectTool.js';
 
 function Toolbar( editor ) {

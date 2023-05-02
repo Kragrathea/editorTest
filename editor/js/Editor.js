@@ -139,7 +139,7 @@ function Editor() {
 
 	const model=new Model()
 	this.model=model;
-	this.scene.add(model)
+	//this.scene.add(model)
 
 	this.toolManager=new ToolManager(this);
 
@@ -682,7 +682,11 @@ Editor.prototype = {
 		this.history.fromJSON( json.history );
 		this.scripts = json.scripts;
 
-		//this.model=JSON.parse(json.model);
+		if(json.model)
+			this.model.fromJSON(json.model);
+
+//		if(json.cameraControls)
+//			editor.view.controls.fromJSON(json.cameraControls)
 
 		this.setScene( await loader.parseAsync( json.scene ) );
 
@@ -721,8 +725,9 @@ Editor.prototype = {
 				toneMappingExposure: this.config.getKey( 'project/renderer/toneMappingExposure' )
 			},
 			camera: this.camera.toJSON(),
+			controls: editor.view.controls.toJSON(),
 			scene: this.scene.toJSON(),
-			//model: this.model.toJSON(),
+			model: this.model.toJSON(),
 			scripts: this.scripts,
 			history: this.history.toJSON()
 

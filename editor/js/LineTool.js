@@ -71,16 +71,21 @@ class Entity{
 	}
 }
 
-class Entities extends THREE.Group{ 
+class Entities /*extends THREE.Group*/{ 
 	constructor()
 	{
-		super()
+		//super()
+		this.clear();
+
+		this.name="Entities"
+	}
+	clear()
+	{
 		this.verts={};
 		this.edges={};
 		this.faces={};
 		//this.edgesList=new EdgeList(1000);
 		this.inferSet= new InferSet();
-		this.name="Entities"
 	}
 
 	test()
@@ -99,8 +104,31 @@ class Entities extends THREE.Group{
 	toJSON()
 	{
 		return {
-			edges:this.edges
+			verts:Object.values(this.verts).filter(v=>v!=null).map(v=>v.toJSON()),
+			edges:Object.values(this.edges).filter(v=>v!=null).map(v=>v.toJSON()),
+			faces:Object.values(this.faces).filter(v=>v!=null).map(v=>v.toJSON()),
 		};
+	}
+	fromJSON(json)
+	{
+		this.clear();
+		for(let v of json.verts)
+		{
+			this.verts[v.id]=Vertex.fromJSON(v)
+		}
+		for(let e of json.edges)
+		{
+			this.edges[e.id]=Edge.fromJSON(e,this.verts)//Pass created verts to edge deserilizer
+		}	
+		for(let f of json.faces)
+		{
+			this.faces[f.id]=Face.fromJSON(f,this.edges)//Pass created edges to face deserilizer
+		}				
+		//load verts
+		//load edges
+		// fixup edges
+		//load faces
+		//build loops from edges
 	}
 	render(renderer,camera)
 	{
@@ -203,7 +231,7 @@ class Entities extends THREE.Group{
 				return(closest)
 			}
 		}
-		const newVertex = new Vertex(position,false);
+		const newVertex = new Vertex(position);
 		newVertex.entities=this;
 		this.verts[newVertex.id]=newVertex;
 		return newVertex
@@ -464,7 +492,7 @@ class Vertex extends Entity{
 	//position=new THREE.Vector3;
 	static idIndex=0;
 	static byId={}//should be weak set
-	constructor(position) {
+	constructor(position=null,id=null) {
 
 		// if(doMerge){
 		// 	let closest=Vertex.findClosest(position)
@@ -476,10 +504,16 @@ class Vertex extends Entity{
 		// }
 
 		super()//important
-		this.id="V"+Vertex.idIndex++;
+		if(id==null)
+			this.id="V"+Vertex.idIndex++;
+		else
+			this.id=id;//todo. check for collisions with existing. 
 
 		this.connectionIds=new Set()//Entity ids
-		this.position=position.clone();
+		if(position==null)
+			this.position=new THREE.Vector3;
+		else
+			this.position=position.clone();
 		this.type="Vertex"
 		Vertex.byId[this.id]=this;
 
@@ -564,18 +598,16 @@ class Vertex extends Entity{
 		let data={
 			id:this.id,
 			position:this.position,
-			connectionIds:connectionIds
+			connectionIds:Array.from(this.connectionIds)
 		}	
 		return data;	
 	}
-	fromJSON(json)
+	static fromJSON(json)
 	{
-		if(Entity.byId[json.id])
-			return Entity.byId[json.id]
-		else{
-			this.id=json.id;
-			this.position= new Vector3(json.position.x,json.position.y,json.position.z);
-		}
+		//todo. handle vertex id already exists. shouldn't happen?
+		let newVert=new Vertex(new Vector3(json.position.x,json.position.y,json.position.z),json.id)
+		return newVert;
+		//}
 	}
 	
 }
@@ -1205,10 +1237,13 @@ class Face extends Entity{
 			}
 		});
 	static idIndex=0;
-	constructor(loop) {
+	constructor(loop,id=null) {
 
 		super()
-		this.id="F"+Face.idIndex++;
+		if(id!=null)
+			this.id=id;
+		else
+			this.id="F"+Face.idIndex++;
 		this.type="Face"
 
 		// let delLoop=loop.findExistingLoop();
@@ -1453,18 +1488,16 @@ class Face extends Entity{
 		let data={
 			type:this.type,
 			id:this.id,
-			start:this.start,
-			end:this.end
+			loopEdgeIds:this.loop.edges.map(x=>x.id)
 		}
 		return data;
 	}
-	fromJSON(json)
+	static fromJSON(json,edges)
 	{
-		this.type=data.type;
-		this.id=data.id;
-		let start = data.start
-		this.type=data.type;
-		this.type=data.type;
+		let loopEdges=json.loopEdgeIds.map(id=>edges[id])
+		let loop = new Loop(loopEdges)
+		let newFace=new Face(loop,json.id)
+		return newFace
 
 	}
 
@@ -1476,7 +1509,8 @@ class Edge extends Entity{
 	//vertices=[ new THREE.Vertex(), new THREE.Vertex()];
 	static byId={};
 	static idIndex=0;
-	constructor(vertex1,vertex2) {
+	constructor(vertex1,vertex2,id=null) {
+
 		if(true)
 		{
 			let same=Array.from(vertex1.connectionIds).filter(x => vertex2.connectionIds.has(x))
@@ -1489,7 +1523,10 @@ class Edge extends Entity{
 
 
 		super()
-		this.id="E"+Edge.idIndex++;
+		if(id!=null)
+			this.id=id;
+		else
+			this.id="E"+Edge.idIndex++;
 
 		if(vertex1.position.distanceTo(vertex2.position)<0.0001)
 		{
@@ -1592,18 +1629,18 @@ class Edge extends Entity{
 		let data={
 			type:this.type,
 			id:this.id,
-			start:this.start,
-			end:this.end
+			startId:this.start.id,
+			endId:this.end.id
 		}
 		return data;
 	}
-	fromJSON(json)
+	static fromJSON(json,verts)
 	{
-		this.type=data.type;
-		this.id=data.id;
-		let start = data.start
-		this.type=data.type;
-		this.type=data.type;
+		let start =verts[json.startId]
+		let end =verts[json.endId]
+
+		let newEdge = new Edge(start,end,json.id)
+		return newEdge
 
 	}
 	doSelect(material)
@@ -1743,8 +1780,8 @@ class Model extends THREE.Group{
 		this.name="Model"
 		this.entities=new Entities();
 		
-		this.add(this.entities)
-
+		//this.add(this.entities)
+//		this.userData["entities"]=this.entities
 		this.commandHistory=[]
 		window.logHistory=this.logHistory
 	}
@@ -1781,16 +1818,21 @@ class Model extends THREE.Group{
 		}
 
 	}
-	// toJSON()
-	// {
-	// 	return {
-	// 		entities:this.entities
-	// 	}
-	// }
-	// fromJSON(json)
-	// {
-	// 	this.entities=new Entities();
-	// }
+	toJSON()
+	{
+		const data = super.toJSON( );
+		data.entities=this.entities.toJSON();
+		data.commandHistory=this.commandHistory;
+		//data.entities=this.entities.toJSON()
+		return data
+	}
+	fromJSON(json)
+	{
+		this.entities=new Entities();
+		if(json.entities)
+			this.entities.fromJSON(json.entities);
+		this.commandHistory=json.commandHistory
+	}
 }
 class MoveEntitesCommand extends Command {
 
