@@ -96,6 +96,7 @@ class SelectTool {
 		//this.mouseIp.unlockInfer();
 	}
 
+
     onDoubleClick(event,position,view)
 	{
         if(event.button==1)
@@ -115,26 +116,73 @@ class SelectTool {
 			{
 				let firstEdge= view.editor.model.entities.findEdge(firstObject.object.userData.edgeId)
                 if(firstEdge)
-                {    
-                    Loop.classifyEdge(firstEdge)
-                    let loops=Loop.findAllLoops(firstEdge)
-                    for(var loop of loops)
-                    {
-                        //if(loop.isLeft)
-                        //    loop.classify()
-                        // let mat =editor.view.selection.yellowMaterial;
-                        // if(loop.classify())
-                        //     mat=editor.view.selection.redMaterial
-                        for(var edge of loop.edges)
-                        {
-                            if(loop.isLeft)
-                                editor.view.selection.add(edge,editor.view.selection.yellowMaterial)
-                            else
-                                editor.view.selection.add(edge,editor.view.selection.redMaterial)
-                        }
-                        
-                    }
-                }
+                    Loop.findFaces(firstEdge)
+                // if(firstEdge)
+                // {   
+                //     let colineEdges=[]
+                //     let nonColineEdges=[]
+                //     SelectTool.findColinearEdges(firstEdge,colineEdges,nonColineEdges)
+                //     for(var edge of colineEdges)
+                //     {
+                //         editor.view.selection.add(edge,editor.view.selection.redMaterial)
+                //     }
+
+                //     let firstPlane=nonColineEdges[0][1]
+                //     let firstEdgeVector=firstEdge.end.position.clone().sub(firstEdge.start.position).normalize()
+                //     for(var edgePlane of nonColineEdges)
+                //     {
+                //         editor.view.selection.add(edgePlane[0],editor.view.selection.yellowMaterial)
+                //         //console.log("plane:"+JSON.stringify(edgePlane[1]))
+
+                //         let thisEdge=edgePlane[0]
+                //         let thisEdgeVector=thisEdge.end.position.clone().sub(thisEdge.start.position).normalize()
+                //         let angle=Loop.angleBetween(thisEdgeVector, firstPlane.normal,firstEdgeVector)
+                //         angle = THREE.MathUtils.radToDeg(angle);
+
+                //         let thisPlane=edgePlane[1]
+                //         let loops=Loop.findAllLoops(firstEdge,thisPlane)
+                //         for(var loop of loops)
+                //         {
+                //             //if(loop.isLeft)
+                //             //    loop.classify()
+                //             // let mat =editor.view.selection.yellowMaterial;
+                //             // if(loop.classify())
+                //             //     mat=editor.view.selection.redMaterial
+                //             for(var edge of loop.edges)
+                //             {
+                //                 if(loop.isLeft)
+                //                     editor.view.selection.add(edge,editor.view.selection.greenMaterial)
+                //                 else
+                //                     editor.view.selection.add(edge,editor.view.selection.redMaterial)
+                //             }
+                            
+                //         }
+
+                //         console.log("angle:"+angle)
+                //     }                   
+                //     if(false)
+                //     {
+                //         Loop.classifyEdge(firstEdge)
+                //         let loops=Loop.findAllLoops(firstEdge)
+                //         for(var loop of loops)
+                //         {
+                //             //if(loop.isLeft)
+                //             //    loop.classify()
+                //             // let mat =editor.view.selection.yellowMaterial;
+                //             // if(loop.classify())
+                //             //     mat=editor.view.selection.redMaterial
+                //             for(var edge of loop.edges)
+                //             {
+                //                 if(loop.isLeft)
+                //                     editor.view.selection.add(edge,editor.view.selection.yellowMaterial)
+                //                 else
+                //                     editor.view.selection.add(edge,editor.view.selection.redMaterial)
+                //             }
+                            
+                //         }
+                //     }
+
+                // }
 			}else if(firstObject.object.userData.faceId)
 			{
 				let face= Face.byId[firstObject.object.userData.faceId]

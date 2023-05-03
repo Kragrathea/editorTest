@@ -138,6 +138,7 @@ class Entities /*extends THREE.Group*/{
 		redEdgeMaterial.resolution.set(editor.view.container.dom.offsetWidth, editor.view.container.dom.offsetHeight);	
 
 		yellowEdgeMaterial.resolution.set(editor.view.container.dom.offsetWidth, editor.view.container.dom.offsetHeight);	
+		greenEdgeMaterial.resolution.set(editor.view.container.dom.offsetWidth, editor.view.container.dom.offsetHeight);	
 	
 
 	  	Object.values(this.faces).forEach(faces => {
@@ -265,10 +266,14 @@ class Entities /*extends THREE.Group*/{
 	//mergeFace (multi mergeEdges, loops handle themselves?)
 	//todo: undo/redo. Cases add/remove edge, split edge, move verts (and/or edge?)
 	addEdge(startPos,endPos){
+		this.mergeEdge(startPos,endPos)
+	}
+	//get rid of addEdge replace with mergeEdge
+	mergeEdge(startPos,endPos){
 
 		let startStr=startPos.toArray().join(",")
 		let endStr=endPos.toArray().join(",")
-		editor.model.addHistory("editor.model.entities.addEdge(new THREE.Vector3("+startStr+"),new THREE.Vector3("+endStr+"))")
+		editor.model.addHistory("editor.model.entities.mergeEdge(new THREE.Vector3("+startStr+"),new THREE.Vector3("+endStr+"))")
 		
 		let newEdgeDist=startPos.distanceTo(endPos)
 		//find intersections
@@ -411,7 +416,7 @@ class Entities /*extends THREE.Group*/{
 				window.editor.execute( new AddEdgeCommand(window.editor,this, newEdge ) );	
 
 	//if two loops share 1 edge and edges go same dir in both loops then one is inner			
-				let loops=Loop.findAllLoops(newEdge)
+				let loops=Loop.findAllLoops3d(newEdge)
 				for(var loop of loops)
 				{
 					//editor.model.entities.addFace(loop)
@@ -424,7 +429,7 @@ class Entities /*extends THREE.Group*/{
 						{
 							console.log("Remove existing face:")
 							//console.log(delLoop)
-							editor.model.entities.removeEntity(ol.face)
+//							editor.model.entities.removeEntity(ol.face)
 						}
 
 						//console.log("classifyOtherLoop:"+result)
@@ -791,7 +796,7 @@ class Loop extends Entity
 				if(loop && loop!=this)//dont find self
 					allLoops[loop.id]=loop
 		}
-		console.log("Common loops:"+Object.keys(allLoops).length)
+		//console.log("Common loops:"+Object.keys(allLoops).length)
 		return Object.values(allLoops)
 
 	}
@@ -802,13 +807,13 @@ class Loop extends Entity
 
 		//find a common edge
 		let commonEdges = aLoopEdges.filter(x =>x!=null&& bLoopEdges.includes(x));
-		console.log("classifyOtherLoop common edges:"+commonEdges.length)
+		//console.log("classifyOtherLoop common edges:"+commonEdges.length)
 		if(commonEdges.length<1)
 			return("unrelated")
 		//if no common then unrelated
 		let commonEdge=commonEdges[0]
-		console.log("Loop:",[this.id,this.edgeReversedIn(commonEdge),JSON.stringify(this.plane.normal)])
-		console.log("Other Loop:",[otherLoop.id,otherLoop.edgeReversedIn(commonEdge),JSON.stringify(otherLoop.plane.normal)])
+		//console.log("Loop:",[this.id,this.edgeReversedIn(commonEdge),JSON.stringify(this.plane.normal)])
+		//console.log("Other Loop:",[otherLoop.id,otherLoop.edgeReversedIn(commonEdge),JSON.stringify(otherLoop.plane.normal)])
 
 		//if(normals !the same)
 			//different plane
@@ -965,7 +970,7 @@ class Loop extends Entity
 		{
 			if(endEdgeIndex-startEdgeIndex!=1)
 				console.log("insertEdge indexes not adjacent")
-			console.log(this.edges[startEdgeIndex+1])
+			//console.log(this.edges[startEdgeIndex+1])
 			this.edges.splice(startEdgeIndex+1,0,newEdge)
 		}else{
 			alert("insertEdge error")
@@ -1055,7 +1060,7 @@ class Loop extends Entity
 			let dist =Math.abs(plane.distanceToPoint( other.position ))
 
 			if(dist>0.1){
-				console.log("Wrong plane:"+dist)
+				//console.log("Wrong plane:"+dist)
 				//#puts("Wrong plane:"+planeDir.to_s)
 				continue;
 			}
@@ -1077,10 +1082,111 @@ class Loop extends Entity
 
 		return(bestEdge)
 	}
-	static findAllLoops(firstEdge)
+
+	static findColinearEdges(firstEdge,result,nonColineResult=null)
 	{
-		let loop=Loop.findLoop(firstEdge,new Vector3(0,-1,0),-1)
-		let loop2=Loop.findLoop(firstEdge,new Vector3(0,1,0),1)
+		let curNode=firstEdge.end;
+		for(let edge of curNode.allEdges())
+		{
+			if(edge==firstEdge || result.indexOf(edge)>-1)
+				continue;
+	
+			let otherVertex = edge.otherVertex(curNode)
+			if(isPointOnLine(firstEdge.start.position,firstEdge.end.position,otherVertex.position))
+			{
+				result.push(edge)
+				Loop.findColinearEdges(edge,result,nonColineResult)
+			}else{
+				if(nonColineResult){
+					let plane=new THREE.Plane().setFromCoplanarPoints(firstEdge.start.position,firstEdge.end.position,otherVertex.position);
+					let vector1=firstEdge.end.position.clone().sub(firstEdge.start.position).normalize()
+					let vector2=edge.end.position.clone().sub(edge.start.position).normalize()
+					nonColineResult.push([edge,plane])
+				}
+			}
+		}
+		curNode=firstEdge.start;
+		for(let edge of curNode.allEdges())
+		{
+			if(edge==firstEdge || result.indexOf(edge)>-1)
+				continue;
+	
+			let otherVertex = edge.otherVertex(curNode)
+			if(isPointOnLine(firstEdge.start.position,firstEdge.end.position,otherVertex.position))
+			{
+				result.push(edge)
+				Loop.findColinearEdges(edge,result,nonColineResult)
+			}else{
+				if(nonColineResult){
+					let plane=new THREE.Plane().setFromCoplanarPoints(firstEdge.start.position,firstEdge.end.position,otherVertex.position);
+					let vector1=firstEdge.end.position.clone().sub(firstEdge.start.position).normalize()
+					let vector2=edge.end.position.clone().sub(edge.start.position).normalize()
+					nonColineResult.push([edge,plane])
+				}
+				
+	
+			}
+		}
+		//return result
+	
+	}	
+	static findFaces(firstEdge)
+	{
+
+	}
+	static findAllLoops3d(firstEdge)
+	{
+		let colineEdges=[]
+		let nonColineEdges=[]
+		Loop.findColinearEdges(firstEdge,colineEdges,nonColineEdges)
+		// for(var edge of colineEdges)
+		// {
+		// 	editor.view.selection.add(edge,editor.view.selection.redMaterial)
+		// }
+
+		let allLoops=[];
+		if(nonColineEdges.length<1)
+			return allLoops;
+
+		let firstPlane=nonColineEdges[0][1]
+		let firstEdgeVector=firstEdge.end.position.clone().sub(firstEdge.start.position).normalize()
+		for(var edgePlane of nonColineEdges)
+		{
+			//editor.view.selection.add(edgePlane[0],editor.view.selection.yellowMaterial)
+			//console.log("plane:"+JSON.stringify(edgePlane[1]))
+
+			let thisEdge=edgePlane[0]
+			let thisEdgeVector=thisEdge.end.position.clone().sub(thisEdge.start.position).normalize()
+			let angle=Loop.angleBetween(thisEdgeVector, firstPlane.normal,firstEdgeVector)
+			angle = THREE.MathUtils.radToDeg(angle);
+
+			let thisPlane=edgePlane[1]
+			let loops=Loop.findAllLoops(firstEdge,thisPlane)
+			for(var loop of loops)
+			{
+				allLoops.push(loop)
+				// for(var edge of loop.edges)
+				// {
+				// 	if(loop.isLeft)
+				// 		editor.view.selection.add(edge,editor.view.selection.greenMaterial)
+				// 	else
+				// 		editor.view.selection.add(edge,editor.view.selection.redMaterial)
+				// }
+				
+			}
+			//console.log("angle:"+angle)
+		}  		
+		return allLoops;
+	}
+	static findAllLoops(firstEdge,plane=new THREE.Plane(new Vector3(0,-1,0),0))
+	{
+		//let loop=Loop.findLoop(firstEdge,new Vector3(0,-1,0),-1)
+		//let loop2=Loop.findLoop(firstEdge,new Vector3(0,1,0),1)
+
+		let loop=Loop.findLoop(firstEdge,plane,-1)
+		let loop2=Loop.findLoop(firstEdge,plane.clone().negate(),1)
+
+
 		let allLoops=[];
 		if(loop.length)
 		{
@@ -1101,7 +1207,55 @@ class Loop extends Entity
 		}
 		return allLoops;
 	}
-	static findLoop(firstEdge,planeDir=null,direction=-1)
+	static findLoop(firstEdge,firstPlane,direction=-1)
+	{
+		//firstPlane=[Geom::Point3d.new(0,0,0),Geom::Vector3d.new(0,0,-1)]
+		//if(planeDir==null)
+		//	planeDir=new Vector3(0,-1,0)
+
+		//let firstPlane=new THREE.Plane(planeDir,0)
+		let loopEdges=[]
+		let curNode=firstEdge.end
+let endNode=firstEdge.start;
+		if(direction>0){
+			curNode=firstEdge.start
+			endNode=firstEdge.end;
+		}
+		let best=Loop.findBest(firstPlane,firstEdge,curNode,direction)
+
+		let loop=[]
+		loop.push(best)
+		while(best!=null){
+			if(best==firstEdge){
+				if(curNode!=endNode)//test that the loop comes back but on wrong end of edge. must be opisite first.
+					{
+						console.log("Bad loop end direction Detected")
+						return []
+					}
+				//console.log("Good Loop Detected")
+				return loop;
+				break
+			}
+			if(loopEdges.indexOf(best)>-1){
+				//console.log("Inner Loop Detected")
+				return []
+				break
+			}
+			loopEdges.push(best);
+			//#figure out endNode
+			curNode=best.otherVertex(curNode)
+			best=Loop.findBest(firstPlane,best,curNode,direction)
+
+			if(best)
+				loop.push(best)
+		}
+		if(best==null){
+			//console.log("Dead Ended")
+			return []
+		}		
+		alert("never here?")
+	}	
+	static xfindLoop(firstEdge,planeDir=null,direction=-1)
 	{
 		//firstPlane=[Geom::Point3d.new(0,0,0),Geom::Vector3d.new(0,0,-1)]
 		if(planeDir==null)
@@ -1739,6 +1893,7 @@ class Selection{
 		this.selected=new Set();
 		this.redMaterial=redEdgeMaterial;
 		this.yellowMaterial=yellowEdgeMaterial;
+		this.greenMaterial=greenEdgeMaterial;
 
 	}
 	add(ent,material=null)
@@ -1940,7 +2095,7 @@ class SplitEdgeCommand extends Command {
 
 		}
 
-		Loop.testAll();
+		//Loop.testAll();
 		
 		this.newEdge=newEdge;
 		window.editor.view.render()
@@ -2187,7 +2342,23 @@ const redEdgeMaterial = new LineMaterial( {
 } );
 const yellowEdgeMaterial = new LineMaterial( {
 
-	color: 0x00ffff,
+	color: 0xffff00,
+	linewidth: 2, // in pixels
+	vertexColors: false,
+	//resolution:  // to be set by renderer, eventually
+	//dashed: false,
+	//alphaToCoverage: true,
+	// onBeforeCompile: shader => {
+	// 	shader.vertexShader = `
+	// 	${shader.vertexShader}
+	// 	`.replace(`uniform float linewidth;`, `attribute float linewidth;`);
+	// 	//console.log(shader.vertexShader)
+	// }
+
+} );
+const greenEdgeMaterial = new LineMaterial( {
+
+	color: 0x00ff00,
 	linewidth: 2, // in pixels
 	vertexColors: false,
 	//resolution:  // to be set by renderer, eventually
@@ -3780,6 +3951,8 @@ class PushTool {
 			this.tempAxis=null;
 		}
 
+		this.tempEntities=new Entities();
+
 		// //Undo temporary moves
 		// if(this.allVerts){
 		// 	Object.values(this.allVerts).forEach(vert=>{
@@ -3940,7 +4113,7 @@ class PushTool {
 
 			}
 
-			this.entities=Array.from(editor.view.selection.selected)
+			//this.entities=Array.from(editor.view.selection.selected)
 			// this.allVerts={}
 			// this.entities.forEach(ent=>{
 			// 	if(ent.type=="Edge")
@@ -3973,21 +4146,26 @@ class PushTool {
 
 				if(Math.abs(this.pushDistance)>0.0001)
 				{
-					if(this.lidVerts){
-						for(let lv of this.lidVerts){
-							lv.position.copy(this.originalVertPos[lv.id]);
-							lv.position.add(vect)
-							//lv.updateRenderObjects();
-						}
-					}
-	
-					for(let edge of this.lidFace.loop.edges)
+					for(let edge of Object.values(this.tempEntities.edges))
 					{
-						if(edge && edge.renderObject)
-							edge.updateRenderObject()
+						editor.model.entities.mergeEdge(edge.start.position,edge.end.position)
 					}
-					this.lidFace.updateRenderObject();					
+					// if(this.lidVerts){
+					// 	for(let lv of this.lidVerts){
+					// 		lv.position.copy(this.originalVertPos[lv.id]);
+					// 		lv.position.add(vect)
+					// 		//lv.updateRenderObjects();
+					// 	}
+					// }
+	
+					// for(let edge of this.lidFace.loop.edges)
+					// {
+					// 	if(edge && edge.renderObject)
+					// 		edge.updateRenderObject()
+					// }
+					// this.lidFace.updateRenderObject();					
 				}
+				this.cancel()
 
 				// //Undo temporary moves
 				// if(this.allVerts){
@@ -4061,7 +4239,7 @@ class PushTool {
 				this.mouseIp.viewCursor.position.set( b.x,b.y,b.z );
 
 				let vect=this.mouseIp.viewCursor.position.clone().sub(this.firstIp.viewCursor.position)
-				this.pushDistance=vect
+				this.pushDistance=vect.length()
 				if(this.lidVerts){
 					for(let lv of this.lidVerts){
 						lv.position.copy(this.originalVertPos[lv.id]);
@@ -4193,4 +4371,5 @@ function findPlaneFromPoints(points)
 		return null;
 	}
 }
+
 export { LineTool,MoveTool,SelectTool,Entities,Selection, Model, InputPoint, RemoveEdgeCommand,RectHelper,ArrowHelper, Loop, Face,PushTool, RectTool, ToolManager };
