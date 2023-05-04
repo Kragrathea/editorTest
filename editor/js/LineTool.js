@@ -429,7 +429,7 @@ class Entities /*extends THREE.Group*/{
 						{
 							console.log("Remove existing face:")
 							//console.log(delLoop)
-//							editor.model.entities.removeEntity(ol.face)
+							editor.model.entities.removeEntity(ol.face)
 						}
 
 						//console.log("classifyOtherLoop:"+result)
@@ -459,7 +459,7 @@ class Entities /*extends THREE.Group*/{
 				this.test();
 			}else{
 				console.log("Edge already exists!");
-				let loops=Loop.findAllLoops(existing)
+				let loops=Loop.findAllLoops3d(existing)
 				for(var loop of loops)
 				{
 					//editor.model.entities.addFace(loop)
@@ -804,6 +804,11 @@ class Loop extends Entity
 	{
 		let aLoopEdges=this.edges; 
 		let bLoopEdges=otherLoop.edges; 
+
+		//reject if wrong plane
+		let dot=this.plane.normal.dot(otherLoop.plane.normal)
+		if(dot<0.99999 && dot>-0.99999)
+			return "unrelated"
 
 		//find a common edge
 		let commonEdges = aLoopEdges.filter(x =>x!=null&& bLoopEdges.includes(x));
@@ -1164,6 +1169,7 @@ class Loop extends Entity
 			let loops=Loop.findAllLoops(firstEdge,thisPlane)
 			for(var loop of loops)
 			{
+				//if(!loop.isLeft)
 				allLoops.push(loop)
 				// for(var edge of loop.edges)
 				// {
@@ -4078,30 +4084,32 @@ class PushTool {
 							bstart=bend;
 							bend=temp;
 						}
-						//this.tempEntities.addEdge(edge.start.position.clone().sub(offVect),edge.end.position.clone().sub(offVect))
-						//this.tempEntities.addEdge(bend.position,bstart.position)
-						//this.tempEntities.addEdge(edge.end.position,bend.position)
-						//this.tempEntities.addEdge(edge.start.position,bstart.position)
+						if(false){
+							this.tempEntities.mergeEdge(edge.start.position.clone().sub(offVect),edge.end.position.clone().sub(offVect))
+							this.tempEntities.mergeEdge(bend.position,bstart.position)
+							this.tempEntities.mergeEdge(edge.end.position,bend.position)
+							this.tempEntities.mergeEdge(edge.start.position,bstart.position)
+						}else{
+							let bottomEdge=new Edge(bend,bstart)
+							let sideEdgeA=new Edge(edge.end,bottomEdge.start)
+							let sideEdgeB=new Edge(edge.start,bottomEdge.end)
 
-						let bottomEdge=new Edge(bend,bstart)
-						let sideEdgeA=new Edge(edge.end,bottomEdge.start)
-						let sideEdgeB=new Edge(edge.start,bottomEdge.end)
-
-						this.tempEntities.addEntity(bottomEdge)
-						this.tempEntities.addEntity(sideEdgeA)
-						this.tempEntities.addEntity(sideEdgeB)
-						
-						bottomEdge.doSelect(redEdgeMaterial)
-						sideEdgeA.doSelect(redEdgeMaterial)
-						sideEdgeB.doSelect(redEdgeMaterial)
+							this.tempEntities.addEntity(bottomEdge)
+							this.tempEntities.addEntity(sideEdgeA)
+							this.tempEntities.addEntity(sideEdgeB)
+							
+							bottomEdge.doSelect(redEdgeMaterial)
+							sideEdgeA.doSelect(redEdgeMaterial)
+							sideEdgeB.doSelect(redEdgeMaterial)
 
 
-						let sideLoop=new Loop([edge,sideEdgeA,bottomEdge,sideEdgeB])
-						//let sideLoop=new Loop([sideEdgeB,bottomEdge,sideEdgeA,edge])
-						let sideFace=new Face(sideLoop)
+							let sideLoop=new Loop([edge,sideEdgeA,bottomEdge,sideEdgeB])
+							//let sideLoop=new Loop([sideEdgeB,bottomEdge,sideEdgeA,edge])
+							let sideFace=new Face(sideLoop)
 
-						//this.sideFaces.push(sideFace)
-						this.tempEntities.addEntity(sideFace)
+							//this.sideFaces.push(sideFace)
+							this.tempEntities.addEntity(sideFace)
+						}
 					}						
 
 				//

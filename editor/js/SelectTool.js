@@ -69,7 +69,7 @@ class SelectTool {
                             //    editor.model.entities.removeEntity(loop.face);
 
                         }
-                        window.editor.execute( new RemoveEdgeCommand(window.editor, ent ) );	
+                        window.editor.execute( new RemoveEdgeCommand(window.editor,editor.model.entities, ent) );	
                         editor.view.render();
                     }
                 if(ent.type=="Face")
