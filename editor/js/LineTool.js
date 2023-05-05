@@ -269,7 +269,7 @@ class Entities /*extends THREE.Group*/{
 		this.mergeEdge(startPos,endPos)
 	}
 	//get rid of addEdge replace with mergeEdge
-	mergeEdge(startPos,endPos){
+	mergeEdge(startPos,endPos,rebuildLoops=true){
 
 		let startStr=startPos.toArray().join(",")
 		let endStr=endPos.toArray().join(",")
@@ -347,8 +347,14 @@ class Entities /*extends THREE.Group*/{
 		let newVerts=[]
 		let sorted=allIntersect.sort((a, b) => { return a[0]-b[0] } )
 
-		//split all crossing lines
 		let splitVerts={}
+		let results={
+			splitEdges:[],
+			newEdges:[],
+			reinforcedEdges:[]
+		}
+
+		//split all crossing lines
 		sorted.forEach((intersect)=>{
 			let edge=intersect[1]
 			//edge.split(intersect[3])
@@ -360,7 +366,8 @@ class Entities /*extends THREE.Group*/{
 				//make sure point is on line
 				if(isPointOnLineAndBetweenPoints(edge.start.position,edge.end.position,splitPoint))
 				{
-					window.editor.execute( new SplitEdgeCommand(window.editor, this, edge, splitPoint ) );		
+					window.editor.execute( new SplitEdgeCommand(window.editor, this, edge, splitPoint ) );	
+					results.splitEdges.push(edge)	//save for return.
 				}else{
 					console.log("WARN:Attempt to split edge at point not on edge:"+[edge,splitPoint])
 				}
@@ -389,18 +396,10 @@ class Entities /*extends THREE.Group*/{
 		let sortedVerts=Object.values(splitVerts).sort((a, b) => { return a.position.distanceTo(startPos)-b.position.distanceTo(startPos) } )
 		if(sortedVerts.length==0 || sortedVerts[0].position.distanceTo(startPos)>0.00001 )
 		{
-			if(sortedVerts.length){
-				//console.log("foobar:")
-				//console.log([sortedVerts[0].position.distanceTo(startPos),0.00001])
-			}
 			sortedVerts.unshift(this.addVertex(startPos));
 		}
 		if(sortedVerts[sortedVerts.length-1].position.distanceTo(endPos)>0.00001 )
 		{
-			if(sortedVerts.length){
-				//console.log("foobarEnd:")
-				//console.log([sortedVerts[sortedVerts.length-1].position.distanceTo(endPos),0.00001])
-			}
 			sortedVerts.push(this.addVertex(endPos));
 		}	
 
@@ -410,85 +409,86 @@ class Entities /*extends THREE.Group*/{
 			if(existing==null)
 			{
 				let newEdge = new Edge(sortedVerts[i],sortedVerts[i+1])
-
 				//if newedge crosses face then remove
 
 				window.editor.execute( new AddEdgeCommand(window.editor,this, newEdge ) );	
 
-	//if two loops share 1 edge and edges go same dir in both loops then one is inner			
-				let loops=Loop.findAllLoops3d(newEdge)
-				for(var loop of loops)
-				{
-					//editor.model.entities.addFace(loop)
-					let otherLoops=loop.findCommonLoops()
-					for(let ol of otherLoops)
-					{
-						let result=ol.classifyOtherLoop(loop)
-						//let delLoop=loop.findExistingLoop();
-						if(result==='inside')
-						{
-							console.log("Remove existing face:")
-							//console.log(delLoop)
-							editor.model.entities.removeEntity(ol.face)
-						}
+				results.newEdges.push(newEdge)//note. might be an pre-existing edge that was now merged?
 
-						//console.log("classifyOtherLoop:"+result)
-					}
-
-					window.editor.execute( new AddFaceCommand(window.editor,this, loop ) );	
-
-				}
-				// let loop=Loop.findLoop(newEdge,new Vector3(0,-1,0),1)
-				// if(loop.length)
-				// {
-				// 	let testLoop=new Loop(loop)
-				// 	if(testLoop.isCw)
-				// 	{
-				// 		editor.model.entities.addFace(testLoop)
-				// 	}
-				// } 
-				// let loop2=Loop.findLoop(newEdge,new Vector3(0,1,0),-1)
-				// if (loop2.length)
-				// {
-				// 	let testLoop=new Loop(loop2)
-				// 	if(testLoop.isCw){
-				// 		editor.model.entities.addFace(testLoop)
-				// 	}
-				// }
-				
 				this.test();
 			}else{
 				console.log("Edge already exists!");
-				let loops=Loop.findAllLoops3d(existing)
-				for(var loop of loops)
-				{
-					//editor.model.entities.addFace(loop)
-					let otherLoops=loop.findCommonLoops()
-					for(let ol of otherLoops)
-					{
-						let result=ol.classifyOtherLoop(loop)
-						//let delLoop=loop.findExistingLoop();
-						if(result==='inside')
-						{
-							console.log("Remove existing face:")
-							//console.log(delLoop)
-							editor.model.entities.removeEntity(ol.face)
-						}
-
-						//console.log("classifyOtherLoop:"+result)
-					}
-
-					window.editor.execute( new AddFaceCommand(window.editor,this, loop ) );	
-
-				}
+				results.reinforcedEdges.push(existing)
 			}
 			
 		}
 
+		if(rebuildLoops)
+			this.rebuildLoops(results.newEdges,results.reinforcedEdges,results.splitEdges)
 
-		return// edge;
+		return results// edge;
 
 	}
+
+	rebuildLoops(newEdges,reinforcedEdges,splitEdges)
+	{
+
+		// for(loop in allLoops)
+		// {
+		// 	let firstEdge=loop.edges
+		// 	//find cw loop
+		// 	//if oldEdges==newEdges
+		// 	//	no update needed
+		// 	//while leftOverEdges
+		// 	//	if find cw loop from first
+		// 	//		new face from loop
+		// }
+
+		for(let edge of newEdges){
+			//if two loops share 1 edge and edges go same dir in both loops then one is inner			
+			let loops=Loop.findAllLoops3d(edge)
+			for(var loop of loops)
+			{
+				console.log(loop.isLeft)
+				//editor.model.entities.addFace(loop)
+				let otherLoops=loop.findCommonLoops()
+				let exists=false;
+				for(let ol of otherLoops)
+				{
+					console.log(loop.isLeft,ol.isLeft)
+					let result=ol.classifyOtherLoop(loop)
+					console.log(result)
+					//let delLoop=loop.findExistingLoop();
+					if(result==='same')
+					{
+						console.log("Same loop exists:")
+						exists=true;
+						continue;
+					}
+					if(result==='inside')
+					{
+						//console.log("Inside:")
+						//console.log("Remove existing face:")
+						//console.log(delLoop)
+						//editor.model.entities.removeEntity(ol.face)
+					}
+					if(result==='outside')
+					{
+						//console.log("Remove existing face:")
+						//console.log(delLoop)
+						//editor.model.entities.removeEntity(ol.face)
+					}
+
+					//console.log("classifyOtherLoop:"+result)
+				}
+
+				if(loop.isCw && !exists)
+					window.editor.execute( new AddFaceCommand(window.editor,this, loop ) );	
+
+			}	
+		}
+	}
+
 }
 class Vertex extends Entity{
 	//edges()
@@ -677,7 +677,7 @@ class Loop extends Entity
 		let points =this.verts.map(v=>new THREE.Vector2(v.position.x,v.position.z));
 		let isCw=ShapeUtils.isClockWise(points);
 		this.isCw=isCw;
-		//console.log(["loop isClockWise:",isCw])
+		console.log(["loop isClockWise:",isCw])
 
 		this.edges=edges;
 		this.type="Loop"
@@ -815,6 +815,10 @@ class Loop extends Entity
 		//console.log("classifyOtherLoop common edges:"+commonEdges.length)
 		if(commonEdges.length<1)
 			return("unrelated")
+
+		if(commonEdges.length==aLoopEdges.length)
+			return("same")
+
 		//if no common then unrelated
 		let commonEdge=commonEdges[0]
 		//console.log("Loop:",[this.id,this.edgeReversedIn(commonEdge),JSON.stringify(this.plane.normal)])
@@ -1048,7 +1052,8 @@ class Loop extends Entity
 		let v1DotV2=vector1.clone().dot(vector2)
 	  	return Math.atan2(crossDot, v1DotV2)
 	}
-	static findBest(plane,firstEdge,startNode,direction){
+	//NOTE in this usage direction should probably always be -1 (min angle) for finding loops. 
+	static findBest(plane,firstEdge,startNode,direction=-1){
 		let minAngle=999;
 		let maxAngle=-999;
 		let bestEdge=null;
@@ -1064,13 +1069,15 @@ class Loop extends Entity
 			
 			let dist =Math.abs(plane.distanceToPoint( other.position ))
 
-			if(dist>0.1){
+			if(dist>0.001){
 				//console.log("Wrong plane:"+dist)
 				//#puts("Wrong plane:"+planeDir.to_s)
 				continue;
 			}
 			let angle=Loop.angleBetween(firstVect,eVect,plane.normal)
 			//console.log("Angle:"+angle * 180 / Math.PI)
+
+			//NOTE in this usage direction should probably always be -1 (min angle) for finding loops. 
 			if(direction<0){
 				if(angle<minAngle){
 					minAngle=angle
@@ -1135,8 +1142,36 @@ class Loop extends Entity
 		//return result
 	
 	}	
+
 	static findFaces(firstEdge)
 	{
+		//tests
+		//for each edge 
+		//check < 3 coplaner
+		//if 2 coplaner then should be reveresed in one.
+		//find loop with right edge if any
+		//confirm same as current right loop
+		
+		//if div existing face then
+		//will have two new loops
+		//both new loops existing edges with right loops will be part of same loop
+
+		editor.view.selection.add(firstEdge,editor.view.selection.redMaterial)
+		let plane=new THREE.Plane(new Vector3(0,-1,0),0);
+		let edges=Loop.findLoop(firstEdge,plane,false)
+		for(var edge of edges)
+		{
+			//if(loop.isLeft)
+				editor.view.selection.add(edge,editor.view.selection.greenMaterial)
+			//else
+			//	editor.view.selection.add(edge,editor.view.selection.redMaterial)
+		}
+		let edges2=Loop.findLoop(firstEdge,plane.clone()/*.negate()*/,true)
+		for(var edge of edges2)
+		{
+			editor.view.selection.add(edge,editor.view.selection.yellowMaterial)
+		}
+
 
 	}
 	static findAllLoops3d(firstEdge)
@@ -1189,8 +1224,8 @@ class Loop extends Entity
 		//let loop=Loop.findLoop(firstEdge,new Vector3(0,-1,0),-1)
 		//let loop2=Loop.findLoop(firstEdge,new Vector3(0,1,0),1)
 
-		let loop=Loop.findLoop(firstEdge,plane,-1)
-		let loop2=Loop.findLoop(firstEdge,plane.clone().negate(),1)
+		let loop=Loop.findLoop(firstEdge,plane,false)
+		let loop2=Loop.findLoop(firstEdge,plane,true)
 
 
 		let allLoops=[];
@@ -1198,7 +1233,7 @@ class Loop extends Entity
 		{
 			let testLoop=new Loop(loop)
 			testLoop.isLeft=true;
-			if(!testLoop.isCw)
+			//if(!testLoop.isCw)
 			{
 				allLoops.push(testLoop)
 			}
@@ -1207,13 +1242,14 @@ class Loop extends Entity
 		{
 			let testLoop=new Loop(loop2)
 			testLoop.isLeft=false;
-			if(!testLoop.isCw){
+			//if(!testLoop.isCw)
+			{
 				allLoops.push(testLoop)
 			}
 		}
 		return allLoops;
 	}
-	static findLoop(firstEdge,firstPlane,direction=-1)
+	static findLoop(firstEdge,firstPlane,firstEdgeReversedIn=false)
 	{
 		//firstPlane=[Geom::Point3d.new(0,0,0),Geom::Vector3d.new(0,0,-1)]
 		//if(planeDir==null)
@@ -1221,12 +1257,16 @@ class Loop extends Entity
 
 		//let firstPlane=new THREE.Plane(planeDir,0)
 		let loopEdges=[]
+
 		let curNode=firstEdge.end
-let endNode=firstEdge.start;
-		if(direction>0){
+		let endNode=firstEdge.start;
+
+		if(firstEdgeReversedIn){
 			curNode=firstEdge.start
 			endNode=firstEdge.end;
 		}
+
+		let direction=-1;//-1 means find Min angle			
 		let best=Loop.findBest(firstPlane,firstEdge,curNode,direction)
 
 		let loop=[]
@@ -1259,8 +1299,9 @@ let endNode=firstEdge.start;
 			//console.log("Dead Ended")
 			return []
 		}		
-		alert("never here?")
-	}	
+		alert("Loop.findLoop() Should never get here")
+	}
+
 	static xfindLoop(firstEdge,planeDir=null,direction=-1)
 	{
 		//firstPlane=[Geom::Point3d.new(0,0,0),Geom::Vector3d.new(0,0,-1)]
