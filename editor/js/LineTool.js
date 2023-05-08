@@ -430,34 +430,142 @@ class Entities /*extends THREE.Group*/{
 
 	}
 
+	rebuildLoop(loop)
+	{
+		if(!loop.face || loop.deleted)
+		{
+			console.log("rebuildLoop loop invalid")
+			return;
+		}
+		let firstEdge=loop.edges[0];
+		let reversedIn=loop.edgeReversedIn(firstEdge)
+		let edges=Loop.findLoop(firstEdge,loop.plane,reversedIn)
+		
+		let commonEdges = edges.filter(x =>x!=null&& loop.edges.includes(x));
+		let leftOverEdges = loop.edges.filter(x =>x!=null&& !edges.includes(x));
+
+
+		//console.log("classifyOtherLoop common edges:"+commonEdges.length)
+		if(commonEdges.length<1){
+			console.log("rebuildLoop error no commonEdges!!!")
+			return;
+		}
+		if(commonEdges.length==loop.edges.length)
+		{
+			console.log("rebuildLoop no changes")
+			return
+		}
+		console.log("rebuildingLoop old/new/common/leftOver:",loop.edges.length,edges.length,commonEdges.length,leftOverEdges.length)
+		let face=loop.face;
+		face.loop.unmake();
+		face.loop.deleted=true;
+		face.loop=new Loop(edges)
+		face.loop.make(face)
+		face.updateRenderObject(true)
+if(false){
+		if(leftOverEdges.length){
+			//handle reversed in.
+			let leftOverEdgeReversedIn=loop.edgeReversedIn(leftOverEdges[0])
+			let newFaceEdges=Loop.findLoop(leftOverEdges[0],loop.plane,leftOverEdgeReversedIn)
+			if(newFaceEdges.length>2)
+			{
+				console.log("rebuildLoop ADDING new face with left over edges:")
+				let loop=new Loop(newFaceEdges)
+				window.editor.execute( new AddFaceCommand(window.editor,this, loop ) );	
+				
+				let remainingEdges = leftOverEdges.filter(x =>x!=null&& !newFaceEdges.includes(x));
+				if(remainingEdges.length>0)
+				{
+					console.log("rebuildLoop REMAINING edges. This shouldn't happen!!")
+				}
+
+			}
+		}
+}
+		// for(var edge of edges)
+		// {
+		// 	//if(loop.isLeft)
+		// 		editor.view.selection.add(edge,editor.view.selection.greenMaterial)
+		// 	//else
+		// 	//	editor.view.selection.add(edge,editor.view.selection.redMaterial)
+		// }
+	}
+
+	splitLoopByLoop(existingLoop,newLoop)
+	{
+		//if existing same as new 
+		//return existing
+		//findACommonEdge between existing and new
+
+		//
+		//find commonEdges
+		let commonEdges = newLoop.edges.filter(x =>x!=null&& existingLoop.edges.includes(x));
+		let newEdges = newLoop.edges.filter(x =>x!=null&& !existingLoop.edges.includes(x));
+
+		let leftOverEdges = existingLoop.edges.filter(x =>x!=null&& !commonEdges.includes(x));
+
+		let newFaceEdges=leftOverEdges.concat(newEdges)
+
+		console.log("splitLoopByLoop existing/common/new/common/leftOver:",existingLoop.edges.length,commonEdges.length,newEdges.length,leftOverEdges.length)
+		let face=existingLoop.face;
+		face.loop.unmake();
+		face.loop.deleted=true;
+		face.loop=newLoop
+		face.loop.make(face)
+		face.updateRenderObject(true)
+
+		let reOrdered=[]
+		let curEdge=newFaceEdges[0]
+		let lastEdge=null;
+		while(curEdge && reOrdered.length<newFaceEdges.length)
+		{
+			reOrdered.push(curEdge)
+			let allConnected= curEdge.allConnected();
+			let connectedEdges=allConnected.filter(x=>newFaceEdges.includes(x) && !reOrdered.includes(x))
+			if(connectedEdges.length==0)
+				curEdge=null;
+			else
+				curEdge=connectedEdges[0]
+			//lastEdge=curEdge
+		}
+
+		let loop=new Loop(reOrdered)
+if(loop.isCw)
+	loop=new Loop(reOrdered.reverse())
+		window.editor.execute( new AddFaceCommand(window.editor,this, loop ) );	
+		//find newEdges
+		//find remainingEdges
+
+		//existingLoop=newLoop
+		//remainderLoop=remainingEdges+newEdges.reversed(?)
+
+	}
+	//makeLoops
+	makeLoops(newEdges,reinforcedEdges,splitEdges)
+	{
+		//each edge could produce one or more loops
+		//each potential loop should either
+		//-exist
+		//-be "inside" ONE existing loop
+		//-not exist yet
+	}
 	rebuildLoops(newEdges,reinforcedEdges,splitEdges)
 	{
-
-		// for(loop in allLoops)
-		// {
-		// 	let firstEdge=loop.edges
-		// 	//find cw loop
-		// 	//if oldEdges==newEdges
-		// 	//	no update needed
-		// 	//while leftOverEdges
-		// 	//	if find cw loop from first
-		// 	//		new face from loop
-		// }
-
-		for(let edge of newEdges){
+		let allEdges=newEdges.concat(reinforcedEdges.concat(splitEdges))
+		for(let edge of allEdges){
 			//if two loops share 1 edge and edges go same dir in both loops then one is inner			
 			let loops=Loop.findAllLoops3d(edge)
 			for(var loop of loops)
 			{
-				console.log(loop.isLeft)
+				//console.log(loop.isLeft)
 				//editor.model.entities.addFace(loop)
 				let otherLoops=loop.findCommonLoops()
 				let exists=false;
+				let rebuilt=false;
 				for(let ol of otherLoops)
 				{
-					console.log(loop.isLeft,ol.isLeft)
 					let result=ol.classifyOtherLoop(loop)
-					console.log(result)
+					//console.log(result)
 					//let delLoop=loop.findExistingLoop();
 					if(result==='same')
 					{
@@ -467,22 +575,26 @@ class Entities /*extends THREE.Group*/{
 					}
 					if(result==='inside')
 					{
-						//console.log("Inside:")
-						//console.log("Remove existing face:")
-						//console.log(delLoop)
-						//editor.model.entities.removeEntity(ol.face)
+						console.log("Inside:")
+						//this.rebuildLoop(ol)
+						let result=this.splitLoopByLoop(ol,loop)
+						
+						exists=true;
 					}
 					if(result==='outside')
 					{
-						//console.log("Remove existing face:")
-						//console.log(delLoop)
-						//editor.model.entities.removeEntity(ol.face)
+						console.log("Outside:")
 					}
-
+					if(result==='unrelated')
+					{
+						console.log("unrelated:")
+					}					
+					
 					//console.log("classifyOtherLoop:"+result)
 				}
 
-				if(loop.isCw && !exists)
+
+				if(!exists)
 					window.editor.execute( new AddFaceCommand(window.editor,this, loop ) );	
 
 			}	
@@ -677,7 +789,7 @@ class Loop extends Entity
 		let points =this.verts.map(v=>new THREE.Vector2(v.position.x,v.position.z));
 		let isCw=ShapeUtils.isClockWise(points);
 		this.isCw=isCw;
-		console.log(["loop isClockWise:",isCw])
+		//console.log(["loop isClockWise:",isCw])
 
 		this.edges=edges;
 		this.type="Loop"
@@ -693,14 +805,15 @@ class Loop extends Entity
 			edge.addLoopRef(this)
 		}
 	}
-	unmake(face)
+	unmake()
 	{
-		this.face=face;
+		//this.face=face;
 		this.bound=false;
 		for(var edge of this.edges)
 		{
 			edge.removeLoopRef(this)
 		}
+		this.face=null;
 	}	
 	delete()
 	{
@@ -749,7 +862,9 @@ class Loop extends Entity
 			if(edge.start.isConnectedTo(nextEdge))
 				return true
 		}
-		//alert("edgeReversedIn failed")
+		console.log("edgeReversedIn failed")
+
+		alert("edgeReversedIn failed")
 		return null;//shouldn't get here.
 	
 	}
@@ -1188,20 +1303,40 @@ class Loop extends Entity
 		if(nonColineEdges.length<1)
 			return allLoops;
 
-		let firstPlane=nonColineEdges[0][1]
+		//remove dup planes in colines
+		let planes=nonColineEdges.map(x=>x[1]).filter((value, index, self) =>{
+		 	let planeA=value
+		 	return index === self.findIndex((t) =>{ 
+				let planeB=t			
+				let dot=planeA.normal.dot(planeB.normal)
+				return (dot<0.99999 || dot>-0.99999) 
+			})
+		})
+
+		//let firstPlane=nonColineEdges[0][1]
+let firstPlane=planes[0]		
 		let firstEdgeVector=firstEdge.end.position.clone().sub(firstEdge.start.position).normalize()
-		for(var edgePlane of nonColineEdges)
+
+
+		//for(var edgePlane of nonColineEdges)
+		for(var plane of planes)
 		{
 			//editor.view.selection.add(edgePlane[0],editor.view.selection.yellowMaterial)
 			//console.log("plane:"+JSON.stringify(edgePlane[1]))
 
-			let thisEdge=edgePlane[0]
+//			let thisEdge=edgePlane[0]
+let thisEdge=firstEdge;			
 			let thisEdgeVector=thisEdge.end.position.clone().sub(thisEdge.start.position).normalize()
 			let angle=Loop.angleBetween(thisEdgeVector, firstPlane.normal,firstEdgeVector)
 			angle = THREE.MathUtils.radToDeg(angle);
 
-			let thisPlane=edgePlane[1]
+			let thisPlane=plane;//edgePlane[1]
 			let loops=Loop.findAllLoops(firstEdge,thisPlane)
+			if(loops.length===2)
+			{
+				let result=loops[0].classifyOtherLoop(loops[1]);
+				console.log("findAllLoops classifyOtherLoop"+result)
+			}
 			for(var loop of loops)
 			{
 				//if(!loop.isLeft)
@@ -1232,8 +1367,8 @@ class Loop extends Entity
 		if(loop.length)
 		{
 			let testLoop=new Loop(loop)
-			testLoop.isLeft=true;
-			//if(!testLoop.isCw)
+			//testLoop.isLeft=true;//
+			if(!testLoop.isCw)
 			{
 				allLoops.push(testLoop)
 			}
@@ -1241,8 +1376,8 @@ class Loop extends Entity
 		if (loop2.length)
 		{
 			let testLoop=new Loop(loop2)
-			testLoop.isLeft=false;
-			//if(!testLoop.isCw)
+			//testLoop.isLeft=false;
+			if(!testLoop.isCw)
 			{
 				allLoops.push(testLoop)
 			}
@@ -1365,8 +1500,10 @@ class Face extends Entity{
 		color: 0xaaaaff,
 		side: THREE.DoubleSide 
 	} );
-	static normalMaterial=this.oldNormalMaterial;
-	static xnormalMaterial = new THREE.ShaderMaterial({
+	static xnormalMaterial=this.oldNormalMaterial;
+	static normalMaterial = new THREE.ShaderMaterial({
+//		transparent:false,
+//		opacity:1.0,
 		side: THREE.DoubleSide,
 		  vertexShader: `
 			varying vec2 vUv;
@@ -1401,8 +1538,8 @@ class Face extends Entity{
 			u_time: { value: 0 }
 		  }
 		});	
-	static selectedMaterial= this.oldSelectedMaterial;
-	static xselectedMaterial = new THREE.ShaderMaterial({
+	static xselectedMaterial= this.oldSelectedMaterial;
+	static selectedMaterial = new THREE.ShaderMaterial({
 		side: THREE.DoubleSide,
 			vertexShader: `
 			varying vec2 vUv;
@@ -1478,8 +1615,8 @@ class Face extends Entity{
 		this.loop.unmake();
 		this.loop.deleted=true;
 
-		newLoop.make();
-		newLoop.face=this;
+		newLoop.make(this);
+		//newLoop.face=this;
 		this.loop=newLoop
 		this.updateRenderObject(true)
 
@@ -1747,16 +1884,16 @@ class Edge extends Entity{
 		this.createRenderObject();
 
 	}
-	addLoopRef(edge){
-		this.loopRefs[edge.id]=edge;
+	addLoopRef(loop){
+		this.loopRefs[loop.id]=loop;
 		if(this.getLoopCount()>1)
 		{
 			this.lineWidth=1
 			this.updateRenderObject(true);
 		}
 	}
-	removeLoopRef(edge){
-		delete this.loopRefs[edge.id];
+	removeLoopRef(loop){
+		delete this.loopRefs[loop.id];
 		if(this.getLoopCount()<1)
 		{
 			this.lineWidth=2
