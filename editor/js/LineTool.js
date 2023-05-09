@@ -90,6 +90,16 @@ class Entities /*extends THREE.Group*/{
 
 	test()
 	{
+return;
+		//look for 
+		//dupe verts
+		//dupe edges
+		//dupe faces
+		//orphaned verts,edges,faces,loop
+		//loops
+		//-bad loops
+		
+
 		console.log("Testing Entities.edges")
 		Object.values(this.edges).forEach(edge => {
 			if(edge)
@@ -455,7 +465,7 @@ class Entities /*extends THREE.Group*/{
 			console.log("rebuildLoop no changes")
 			return
 		}
-		console.log("rebuildingLoop old/new/common/leftOver:",loop.edges.length,edges.length,commonEdges.length,leftOverEdges.length)
+		//console.log("rebuildingLoop old/new/common/leftOver:",loop.edges.length,edges.length,commonEdges.length,leftOverEdges.length)
 		let face=loop.face;
 		face.loop.unmake();
 		face.loop.deleted=true;
@@ -506,7 +516,7 @@ if(false){
 
 		let newFaceEdges=leftOverEdges.concat(newEdges)
 
-		console.log("splitLoopByLoop existing/common/new/common/leftOver:",existingLoop.edges.length,commonEdges.length,newEdges.length,leftOverEdges.length)
+		//console.log("splitLoopByLoop existing/common/new/common/leftOver:",existingLoop.edges.length,commonEdges.length,newEdges.length,leftOverEdges.length)
 		let face=existingLoop.face;
 		face.loop.unmake();
 		face.loop.deleted=true;
@@ -569,13 +579,13 @@ if(loop.isCw)
 					//let delLoop=loop.findExistingLoop();
 					if(result==='same')
 					{
-						console.log("Same loop exists:")
+						//console.log("Same loop exists:")
 						exists=true;
 						continue;
 					}
 					if(result==='inside')
 					{
-						console.log("Inside:")
+						//console.log("Inside:")
 						//this.rebuildLoop(ol)
 						let result=this.splitLoopByLoop(ol,loop)
 						
@@ -583,11 +593,11 @@ if(loop.isCw)
 					}
 					if(result==='outside')
 					{
-						console.log("Outside:")
+						//console.log("Outside:")
 					}
 					if(result==='unrelated')
 					{
-						console.log("unrelated:")
+						//console.log("unrelated:")
 					}					
 					
 					//console.log("classifyOtherLoop:"+result)
@@ -827,6 +837,62 @@ class Loop extends Entity
 		Loop.byId[this.id]=null
 		this.deleted=true;
 
+	}
+	to2D()
+	{
+		let verts=[]
+
+		let pY = new THREE.Vector3()
+		let ti=0;
+		let tempY = new THREE.Vector3()
+		while(pY.lengthSq()<0.00001){
+			tempY=this.verts[ti++].position.clone()
+			this.plane.projectPoint(tempY, pY)
+		}
+
+		if(pY.lengthSq()<0.00001)
+			alert("Bad pY in Loop to2D()")
+		pY.normalize()
+
+		let origin=new Vector3();//will be filled in.
+		this.plane.coplanarPoint(origin) //NOTE:Loads a coplaner point into origin.
+
+		let normal = this.plane.normal;
+		let pX = new THREE.Vector3().crossVectors(pY, normal)
+		pX.normalize()
+
+		//project loop verts onto plane
+		for(var vert of this.verts){
+			let target=new THREE.Vector3();
+			this.plane.projectPoint(vert.position,target)
+
+			let x = target.clone().projectOnVector(pX).distanceTo(origin)
+			if(target.clone().projectOnVector(pX).normalize().distanceTo(pX)<0.00001){
+				x = -x
+			}
+
+			let y = target.clone().projectOnVector(pY).distanceTo(origin)
+			if(target.clone().projectOnVector(pY).normalize().distanceTo(pY)<0.00001){
+				y = -y
+			}
+			let v=new THREE.Vector2(-x,-y);
+
+			//test
+			// let vt=new THREE.Vector2(target.x,target.z);
+			// console.log("foobar Loop info:"+[JSON.stringify(this.plane),this.isCw])
+			// if(v.distanceTo(vt)>0.0001)
+			// {
+			// 	console.log("foobar Unproj doesn't match"+JSON.stringify([v,vt]))
+			// }else
+			// {
+			// 	console.log("foobar Good Unproj"+JSON.stringify([v,vt]))
+			// }
+
+			v.userData=vert.id;
+			verts.push(v)
+			//verts.push(new THREE.Vector2(vert.position.x,vert.position.z))
+		}
+		return verts;
 	}
 	static testAll()
 	{
@@ -1271,22 +1337,27 @@ class Loop extends Entity
 		//will have two new loops
 		//both new loops existing edges with right loops will be part of same loop
 
-		editor.view.selection.add(firstEdge,editor.view.selection.redMaterial)
-		let plane=new THREE.Plane(new Vector3(0,-1,0),0);
-		let edges=Loop.findLoop(firstEdge,plane,false)
-		for(var edge of edges)
-		{
-			//if(loop.isLeft)
-				editor.view.selection.add(edge,editor.view.selection.greenMaterial)
-			//else
-			//	editor.view.selection.add(edge,editor.view.selection.redMaterial)
-		}
-		let edges2=Loop.findLoop(firstEdge,plane.clone()/*.negate()*/,true)
-		for(var edge of edges2)
-		{
-			editor.view.selection.add(edge,editor.view.selection.yellowMaterial)
-		}
 
+		let loops=Loop.findAllLoops3d(firstEdge)
+		for(var loop of loops)
+		{
+
+			//let plane=new THREE.Plane(new Vector3(0,-1,0),0);
+			let edges=loop.edges//Loop.findLoop(firstEdge,plane,false)
+			for(var edge of edges)
+			{
+				if(loop.edgeReversedIn(firstEdge))
+					editor.view.selection.add(edge,editor.view.selection.greenMaterial)
+				else
+					editor.view.selection.add(edge,editor.view.selection.yellowMaterial)
+			}
+			// let edges2=Loop.findLoop(firstEdge,plane.clone()/*.negate()*/,true)
+			// for(var edge of edges2)
+			// {
+			// 	editor.view.selection.add(edge,editor.view.selection.yellowMaterial)
+			// }
+		}
+		editor.view.selection.add(firstEdge,editor.view.selection.redMaterial)
 
 	}
 	static findAllLoops3d(firstEdge)
@@ -1309,7 +1380,8 @@ class Loop extends Entity
 		 	return index === self.findIndex((t) =>{ 
 				let planeB=t			
 				let dot=planeA.normal.dot(planeB.normal)
-				return (dot<0.99999 || dot>-0.99999) 
+				//console.log(dot,dot>0.99999 || dot<-0.99999)
+				return (dot>0.99999 || dot<-0.99999) 
 			})
 		})
 
@@ -1335,7 +1407,7 @@ let thisEdge=firstEdge;
 			if(loops.length===2)
 			{
 				let result=loops[0].classifyOtherLoop(loops[1]);
-				console.log("findAllLoops classifyOtherLoop"+result)
+				//console.log("findAllLoops classifyOtherLoop:"+result)
 			}
 			for(var loop of loops)
 			{
@@ -1494,14 +1566,14 @@ class Face extends Entity{
 	static byId={};
 	static oldNormalMaterial = new THREE.MeshBasicMaterial( { 
 		color: 0xaaaaaa,
-		side: THREE.DoubleSide 
+		side: THREE.DoubleSide, 
 	} );
 	static oldSelectedMaterial = new THREE.MeshBasicMaterial( { 
 		color: 0xaaaaff,
-		side: THREE.DoubleSide 
+		side: THREE.DoubleSide,
 	} );
-	static xnormalMaterial=this.oldNormalMaterial;
-	static normalMaterial = new THREE.ShaderMaterial({
+	static normalMaterial=this.oldNormalMaterial;
+	static xnormalMaterial = new THREE.ShaderMaterial({
 //		transparent:false,
 //		opacity:1.0,
 		side: THREE.DoubleSide,
@@ -1538,8 +1610,8 @@ class Face extends Entity{
 			u_time: { value: 0 }
 		  }
 		});	
-	static xselectedMaterial= this.oldSelectedMaterial;
-	static selectedMaterial = new THREE.ShaderMaterial({
+	static selectedMaterial= this.oldSelectedMaterial;
+	static xselectedMaterial = new THREE.ShaderMaterial({
 		side: THREE.DoubleSide,
 			vertexShader: `
 			varying vec2 vUv;
@@ -1653,69 +1725,72 @@ class Face extends Entity{
 	}
 	createRenderObject()
 	{
-		let verts=[]
 
-		let tempY = new THREE.Vector3(5000, -9934, 8444)
+		let verts=this.loop.to2D();
 
-		let pY = new THREE.Vector3()
-		let ti=0;
-		while(pY.lengthSq()<0.00001){
-			tempY=this.loop.verts[ti++].position.clone()
-			this.loop.plane.projectPoint(tempY, pY)
-		}
+		//let verts=[]
+		if(false){
+			let tempY = new THREE.Vector3(5000, -9934, 8444)
 
-		if(pY.lengthSq()<0.00001)
-			alert("Bad pY in Face createRenderObject")
-		pY.normalize()
-
-
-		let origin=new Vector3();//will be filled in.
-		this.loop.plane.coplanarPoint(origin) //NOTE:Loads a coplaner point into origin.
-//origin=new Vector3(0,0,0);
-//pY=new Vector3(0,0,1);
-
-//origin=this.loop.verts[0].position;
-//pY=this.loop.verts[1].position;
-
-		let normal = this.loop.plane.normal;
-//normal=new Vector3(0,-1,0)
-		let pX = new THREE.Vector3().crossVectors(pY, normal)
-//pX=new Vector3(1,0,0);
-		pX.normalize()
-
-		//todo. project loop verts onto plane
-		for(var vert of this.loop.verts){
-			let target=new THREE.Vector3();
-			this.loop.plane.projectPoint(vert.position,target)
-
-			let x = target.clone().projectOnVector(pX).distanceTo(origin)
-			if(target.clone().projectOnVector(pX).normalize().distanceTo(pX)<0.00001){
-				x = -x
+			let pY = new THREE.Vector3()
+			let ti=0;
+			while(pY.lengthSq()<0.00001){
+				tempY=this.loop.verts[ti++].position.clone()
+				this.loop.plane.projectPoint(tempY, pY)
 			}
 
-			let y = target.clone().projectOnVector(pY).distanceTo(origin)
-			if(target.clone().projectOnVector(pY).normalize().distanceTo(pY)<0.00001){
-				y = -y
+			if(pY.lengthSq()<0.00001)
+				alert("Bad pY in Face createRenderObject")
+			pY.normalize()
+
+
+			let origin=new Vector3();//will be filled in.
+			this.loop.plane.coplanarPoint(origin) //NOTE:Loads a coplaner point into origin.
+	//origin=new Vector3(0,0,0);
+	//pY=new Vector3(0,0,1);
+
+	//origin=this.loop.verts[0].position;
+	//pY=this.loop.verts[1].position;
+
+			let normal = this.loop.plane.normal;
+	//normal=new Vector3(0,-1,0)
+			let pX = new THREE.Vector3().crossVectors(pY, normal)
+	//pX=new Vector3(1,0,0);
+			pX.normalize()
+
+			//todo. project loop verts onto plane
+			for(var vert of this.loop.verts){
+				let target=new THREE.Vector3();
+				this.loop.plane.projectPoint(vert.position,target)
+
+				let x = target.clone().projectOnVector(pX).distanceTo(origin)
+				if(target.clone().projectOnVector(pX).normalize().distanceTo(pX)<0.00001){
+					x = -x
+				}
+
+				let y = target.clone().projectOnVector(pY).distanceTo(origin)
+				if(target.clone().projectOnVector(pY).normalize().distanceTo(pY)<0.00001){
+					y = -y
+				}
+				let v=new THREE.Vector2(-x,-y);
+
+				//test
+				// let vt=new THREE.Vector2(target.x,target.z);
+				// console.log("foobar Loop info:"+[JSON.stringify(this.loop.plane),this.loop.isCw])
+				// if(v.distanceTo(vt)>0.0001)
+				// {
+				// 	console.log("foobar Unproj doesn't match"+JSON.stringify([v,vt]))
+				// }else
+				// {
+				// 	console.log("foobar Good Unproj"+JSON.stringify([v,vt]))
+				// }
+
+
+				v.userData=vert.id;
+				verts.push(v)
+				//verts.push(new THREE.Vector2(vert.position.x,vert.position.z))
 			}
-			let v=new THREE.Vector2(-x,-y);
-
-			//test
-			// let vt=new THREE.Vector2(target.x,target.z);
-			// console.log("foobar Loop info:"+[JSON.stringify(this.loop.plane),this.loop.isCw])
-			// if(v.distanceTo(vt)>0.0001)
-			// {
-			// 	console.log("foobar Unproj doesn't match"+JSON.stringify([v,vt]))
-			// }else
-			// {
-			// 	console.log("foobar Good Unproj"+JSON.stringify([v,vt]))
-			// }
-
-
-			v.userData=vert.id;
-			verts.push(v)
-			//verts.push(new THREE.Vector2(vert.position.x,vert.position.z))
 		}
-
 		const shape= new THREE.Shape(verts)
 		const geometry = new THREE.ShapeGeometry( shape );
 
@@ -1764,9 +1839,7 @@ class Face extends Entity{
 		}
 
 		const face = new THREE.Mesh( geometry, Face.normalMaterial ) ;
-		//face.lookAt(new THREE.Vector3(0,-1,0))
 
-		//face.computeLineDistances();
 		face.name="Face";
 		face.userData.faceId=this.id
 		this.renderObject=face;
@@ -2246,7 +2319,7 @@ class SplitEdgeCommand extends Command {
 	}
 
 	execute() {
-		console.log("do split")
+		console.log("SplitEdgeCommand")
 		//this.editor.model.edges
 		let newVert = this.entities.addVertex(this.splitPoint)
 		this.newVert=newVert;
@@ -2292,7 +2365,7 @@ class SplitEdgeCommand extends Command {
 	}
 
 	undo() {
-		console.log("undo split")
+		console.log("undo SplitEdgeCommand")
 
 		this.edge.end=this.newEdge.end
 		this.edge.end.connect(this.edge)
