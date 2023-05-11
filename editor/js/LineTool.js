@@ -90,6 +90,51 @@ class Entities /*extends THREE.Group*/{
 
 	test()
 	{
+
+		for(let v1 of Object.values(this.verts))
+		{
+			if(!v1){
+				console.log("TEST:Unremoved vert:")
+				continue;
+			}
+			for(let v2 of Object.values(this.verts))
+			{
+				if(v1==v2)
+					continue
+				if(!v2){
+					continue;
+				}				
+				if(v1.position.manhattanDistanceTo(v2.position)<0.00001)
+				{
+					console.log("TEST:Found dup vertex:",v1.id,v2.id)
+				}
+			}
+	
+		}
+		for(let e1 of Object.values(this.edges))
+		{
+			if(!e1){
+				console.log("TEST:Unremoved vert:")
+				continue;
+			}
+			for(let e2 of Object.values(this.edges))
+			{
+				if(e1==e2)
+					continue
+				if(!e2){
+					continue;
+				}			
+				if(e1.start == e2.start && e1.end== e2.end)
+				{
+					console.log("TEST:Found dup Edge:",e1.id,e2.id)
+				}	
+				if(e1.start == e2.end && e1.end== e2.start)
+				{
+					console.log("TEST:Found dup Reversed Edge:",e1.id,e2.id)
+				}	
+			}
+	
+		}		
 return;
 		//look for 
 		//dupe verts
@@ -211,6 +256,8 @@ return;
 	}
 	removeEntity(ent)
 	{
+		console.log("removeEntity "+ent.type+" id:"+ent.id)
+
 		switch(ent.type)
 		{
 			case "Face":
@@ -569,13 +616,16 @@ if(loop.isCw)
 			{
 				//console.log(loop.isLeft)
 				//editor.model.entities.addFace(loop)
+
+	
+
 				let otherLoops=loop.findCommonLoops()
 				let exists=false;
 				let rebuilt=false;
 				for(let ol of otherLoops)
 				{
 					let result=ol.classifyOtherLoop(loop)
-					//console.log(result)
+					console.log(result)
 					//let delLoop=loop.findExistingLoop();
 					if(result==='same')
 					{
@@ -587,7 +637,7 @@ if(loop.isCw)
 					{
 						//console.log("Inside:")
 						//this.rebuildLoop(ol)
-						let result=this.splitLoopByLoop(ol,loop)
+						this.splitLoopByLoop(ol,loop)
 						
 						exists=true;
 					}
@@ -744,7 +794,20 @@ class Loop extends Entity
 	static idIndex=0
 	constructor(edges)
 	{
+
+		for(let ll of Object.values(Loop.byId))
+		{
+			let commonEdges = edges.filter(x =>x!=null&& ll.edges.includes(x));
+			if(commonEdges.length===edges.length)
+			{
+				//console.log("Loop Exists Dammmit!!")
+			}
+		}
+
 		super()
+
+
+
 		this.id="L"+Loop.idIndex++;
 
 		let verts=[]
@@ -968,6 +1031,34 @@ class Loop extends Entity
 		}
 
 	}
+	findExistingFaces()
+	{
+		let faces=[]
+		for(let fa of Object.values(Face.byId))
+		{
+			if(!fa || fa.deleted)
+				continue;
+
+			if(this.edges.length!=fa.loop.edges.length)
+				continue;
+
+			let dot=this.plane.normal.dot(fa.loop.plane.normal)
+			if(dot<0.99999 && dot>-0.99999)
+				continue; //return "unrelated"
+
+			let commonEdges = this.edges.filter(x =>x!=null&& fa.loop.edges.includes(x));
+			if(commonEdges.length<0)
+				continue;
+
+			if(commonEdges.length===this.edges.length)
+			{
+				faces.push(fa)
+			}
+		}
+
+		return faces;
+
+	}	
 	findCommonLoops()
 	{
 		let allLoops={}
@@ -1406,7 +1497,7 @@ let thisEdge=firstEdge;
 			let loops=Loop.findAllLoops(firstEdge,thisPlane)
 			if(loops.length===2)
 			{
-				let result=loops[0].classifyOtherLoop(loops[1]);
+				//let result=loops[0].classifyOtherLoop(loops[1]);
 				//console.log("findAllLoops classifyOtherLoop:"+result)
 			}
 			for(var loop of loops)
@@ -1440,7 +1531,7 @@ let thisEdge=firstEdge;
 		{
 			let testLoop=new Loop(loop)
 			//testLoop.isLeft=true;//
-			if(!testLoop.isCw)
+			//if(!testLoop.isCw)
 			{
 				allLoops.push(testLoop)
 			}
@@ -1449,7 +1540,7 @@ let thisEdge=firstEdge;
 		{
 			let testLoop=new Loop(loop2)
 			//testLoop.isLeft=false;
-			if(!testLoop.isCw)
+			//if(!testLoop.isCw)
 			{
 				allLoops.push(testLoop)
 			}
@@ -1572,8 +1663,8 @@ class Face extends Entity{
 		color: 0xaaaaff,
 		side: THREE.DoubleSide,
 	} );
-	static normalMaterial=this.oldNormalMaterial;
-	static xnormalMaterial = new THREE.ShaderMaterial({
+	static xnormalMaterial=this.oldNormalMaterial;
+	static normalMaterial = new THREE.ShaderMaterial({
 //		transparent:false,
 //		opacity:1.0,
 		side: THREE.DoubleSide,
@@ -1610,8 +1701,8 @@ class Face extends Entity{
 			u_time: { value: 0 }
 		  }
 		});	
-	static selectedMaterial= this.oldSelectedMaterial;
-	static xselectedMaterial = new THREE.ShaderMaterial({
+	static xselectedMaterial= this.oldSelectedMaterial;
+	static selectedMaterial = new THREE.ShaderMaterial({
 		side: THREE.DoubleSide,
 			vertexShader: `
 			varying vec2 vUv;
@@ -1648,6 +1739,18 @@ class Face extends Entity{
 		});
 	static idIndex=0;
 	constructor(loop,id=null) {
+		if(Face.idIndex==30)
+			console.log("here")
+
+		for(let fa of Object.values(Face.byId))
+		{
+			let commonEdges = loop.edges.filter(x =>x!=null&& fa.loop.edges.includes(x));
+			if(commonEdges.length===loop.edges.length)
+			{
+				console.log("Face Exists Dammmit!!")
+				return fa;
+			}
+		}
 
 		super()
 		if(id!=null)
@@ -2515,9 +2618,9 @@ class AddFaceCommand extends Command {
 	}
 
 	execute() {
-		console.log("do "+this.type)
 		//this.editor.model.edges
 		this.face=this.entities.addFace(this.loop)
+		console.log("do "+this.type+" ID:"+this.face.id)
 		//window.editor.model.entities.inferSet.addEdgeRef(this.edge);
 		window.editor.view.render()
 	}
