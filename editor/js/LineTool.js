@@ -635,15 +635,21 @@ if(loop.isCw)
 					}
 					if(result==='inside')
 					{
+						//if(ol.face)
+						//	this.removeEntity(ol.face)
 						//console.log("Inside:")
 						//this.rebuildLoop(ol)
+
 						this.splitLoopByLoop(ol,loop)
-						
 						exists=true;
 					}
 					if(result==='outside')
 					{
+						//if(ol.face)
+						//	this.removeEntity(ol.face)
 						//console.log("Outside:")
+//						this.splitLoopByLoop(ol,loop)
+//						exists=true;
 					}
 					if(result==='unrelated')
 					{
@@ -797,6 +803,8 @@ class Loop extends Entity
 
 		for(let ll of Object.values(Loop.byId))
 		{
+			if(ll==null || ll.deleted)
+				continue;
 			let commonEdges = edges.filter(x =>x!=null&& ll.edges.includes(x));
 			if(commonEdges.length===edges.length)
 			{
@@ -1531,7 +1539,7 @@ let thisEdge=firstEdge;
 		{
 			let testLoop=new Loop(loop)
 			//testLoop.isLeft=true;//
-			//if(!testLoop.isCw)
+			if(!testLoop.isCw)
 			{
 				allLoops.push(testLoop)
 			}
@@ -1540,7 +1548,7 @@ let thisEdge=firstEdge;
 		{
 			let testLoop=new Loop(loop2)
 			//testLoop.isLeft=false;
-			//if(!testLoop.isCw)
+			if(!testLoop.isCw)
 			{
 				allLoops.push(testLoop)
 			}
@@ -1744,6 +1752,8 @@ class Face extends Entity{
 
 		for(let fa of Object.values(Face.byId))
 		{
+			if(fa==null || fa.deleted)
+				continue;
 			let commonEdges = loop.edges.filter(x =>x!=null&& fa.loop.edges.includes(x));
 			if(commonEdges.length===loop.edges.length)
 			{
@@ -2564,7 +2574,8 @@ class AddEdgeCommand extends Command {
 	}
 
 	execute() {
-		console.log("do "+this.type)
+		//console.log("do "+this.type)
+		console.log("do "+this.type+" ID:"+this.edge.id)
 		//this.editor.model.edges
 		this.entities.edges[this.edge.id]=this.edge;
 		this.entities.inferSet.addEdgeRef(this.edge);
