@@ -587,8 +587,8 @@ if(false){
 		}
 
 		let loop=new Loop(reOrdered)
-if(loop.isCw)
-	loop=new Loop(reOrdered.reverse())
+ if(loop.isCw)
+ 	loop=new Loop(reOrdered.reverse())
 		window.editor.execute( new AddFaceCommand(window.editor,this, loop ) );	
 		//find newEdges
 		//find remainingEdges
@@ -870,7 +870,7 @@ class Loop extends Entity
 		let points =this.verts.map(v=>new THREE.Vector2(v.position.x,v.position.z));
 		let isCw=ShapeUtils.isClockWise(points);
 		this.isCw=isCw;
-		//console.log(["loop isClockWise:",isCw])
+		console.log(["loop isClockWise:",isCw,JSON.stringify(this.plane.normal)])
 
 		this.edges=edges;
 		this.type="Loop"
@@ -1087,7 +1087,7 @@ class Loop extends Entity
 
 		//reject if wrong plane
 		let dot=this.plane.normal.dot(otherLoop.plane.normal)
-		if(dot<0.99999 && dot>-0.99999)
+		if(dot<0.99999)// && dot>-0.99999)
 			return "unrelated"
 
 		//find a common edge
@@ -1480,7 +1480,7 @@ class Loop extends Entity
 				let planeB=t			
 				let dot=planeA.normal.dot(planeB.normal)
 				//console.log(dot,dot>0.99999 || dot<-0.99999)
-				return (dot>0.99999 || dot<-0.99999) 
+				return (dot>0.99999)// || dot<-0.99999) 
 			})
 		})
 
@@ -1539,11 +1539,12 @@ let thisEdge=firstEdge;
 		{
 			let testLoop=new Loop(loop)
 			//testLoop.isLeft=true;//
-			if(!testLoop.isCw)
+//			if(!testLoop.isCw)
 			{
 				allLoops.push(testLoop)
 			}
 		} 
+return allLoops		
 		if (loop2.length)
 		{
 			let testLoop=new Loop(loop2)
@@ -1671,10 +1672,13 @@ class Face extends Entity{
 		color: 0xaaaaff,
 		side: THREE.DoubleSide,
 	} );
-	static xnormalMaterial=this.oldNormalMaterial;
-	static normalMaterial = new THREE.ShaderMaterial({
-//		transparent:false,
-//		opacity:1.0,
+	static normalMaterial=this.oldNormalMaterial;
+	static xnormalMaterial = new THREE.ShaderMaterial({
+		transparent:false,
+		forceSinglePass:true,
+		color: 0xff0000,
+
+		opacity:1.0,
 		side: THREE.DoubleSide,
 		  vertexShader: `
 			varying vec2 vUv;
@@ -1711,6 +1715,7 @@ class Face extends Entity{
 		});	
 	static xselectedMaterial= this.oldSelectedMaterial;
 	static selectedMaterial = new THREE.ShaderMaterial({
+		forceSinglePass:true,
 		side: THREE.DoubleSide,
 			vertexShader: `
 			varying vec2 vUv;
