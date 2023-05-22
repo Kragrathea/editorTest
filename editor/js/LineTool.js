@@ -587,8 +587,8 @@ if(false){
 		}
 
 		let loop=new Loop(reOrdered)
- if(loop.isCw)
- 	loop=new Loop(reOrdered.reverse())
+ //if(loop.isCw)
+ //	loop=new Loop(reOrdered.reverse())
 		window.editor.execute( new AddFaceCommand(window.editor,this, loop ) );	
 		//find newEdges
 		//find remainingEdges
@@ -1672,8 +1672,8 @@ class Face extends Entity{
 		color: 0xaaaaff,
 		side: THREE.DoubleSide,
 	} );
-	static normalMaterial=this.oldNormalMaterial;
-	static xnormalMaterial = new THREE.ShaderMaterial({
+	static xnormalMaterial=this.oldNormalMaterial;
+	static normalMaterial = new THREE.ShaderMaterial({
 		transparent:false,
 		forceSinglePass:true,
 		color: 0xff0000,
