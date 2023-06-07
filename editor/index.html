@@ -45,6 +45,9 @@
 		<script src="js/libs/tern-threejs/threejs.js"></script>
 		<script src="js/libs/signals.min.js"></script>
 
+		<script src="js/libs/svg.js"></script>
+		<!-- <script src="js/libs/d3.v3.js"></script> -->
+
 		<!-- Import maps polyfill -->
 		<!-- Remove this when import maps will be widely supported -->
 		<script async src="js/libs/es-module-shims.js"></script>
@@ -102,6 +105,35 @@
 
 			// console.log( JSON.stringify(res_poly));
 
+			// var vis = d3.select("body").append("svg")
+			// 		.attr("style", "position:absolute;background:white;opacity:0.3")
+			// 		.attr("width", 512)
+			// 		.attr("height", 512),
+					
+
+			// scaleX = d3.scale.linear()
+			// 		.domain([-30,30])
+			// 		.range([0,600]),
+
+			// scaleY = d3.scale.linear()
+			// 		.domain([0,50])
+			// 		.range([500,0]),
+
+			// poly = [{"x":0.0, "y":25.0},
+			// 		{"x":8.5,"y":23.4},
+			// 		{"x":13.0,"y":21.0},
+			// 		{"x":19.0,"y":15.5}];
+
+			// vis.selectAll("polygon")
+			// 	.data([poly])
+			// .enter().append("polygon")
+			// 	.attr("points",function(d) { 
+			// 		return d.map(function(d) { return [scaleX(d.x),scaleY(d.y)].join(","); }).join(" ");})
+			// 	.attr("stroke","black")
+			// 	.attr("stroke-width",2);
+			
+
+
 			import * as THREE from 'three';
 
 			import { Editor } from './js/Editor.js';
@@ -152,6 +184,14 @@
 
 			const resizer = new Resizer( editor );
 			document.body.appendChild( resizer.dom );
+
+
+			var draw = SVG().addTo('#viewport').size("512px","512px")
+  			//var rect = draw.rect(100, 100).fill('#f06')
+
+			draw.attr("style", "top:0px;right:0px;position:absolute;background:white;opacity:0.3")
+			window.svgOverlay=draw;
+
 
 			//
 
