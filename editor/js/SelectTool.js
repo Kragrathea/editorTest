@@ -81,6 +81,16 @@ class SelectTool {
                     }                    
             })
         }
+        if(event.keyCode==70 /*&& event.ctrlKey*/){
+            editor.view.selection.selected.forEach((ent)=>{
+                if(ent.type=="Face")
+                {
+                    ent.loop.reverse();
+                    ent.updateRenderObject(true)
+                    //window.editor.execute( new RemoveEdgeCommand(window.editor, ent ) );  
+                }                     
+            })
+        }
         if(event.keyCode==67 && event.ctrlKey){
             let txt=JSON.stringify(editor.view.selection)
             var data = [new ClipboardItem({ "text/plain": new Blob([txt], { type: "text/plain" }) })];
@@ -283,12 +293,19 @@ class SelectTool {
 			{
 				let face= Face.byId[firstObject.object.userData.faceId]
                 if(face)
+                {    
                     if(event.shiftKey)
                         view.selection.toggle(face)
                     else{
                         view.selection.clear();
                         view.selection.toggle(face)
                     }
+                    if(window.svgOverlay)
+                    {
+                        window.svgOverlay.clear();     
+                        face.loop.toSVG();
+                    }
+                }
 			}else{
 				//view.signals.intersectionsDetected.dispatch( intersects );
 			}

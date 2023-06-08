@@ -868,6 +868,7 @@ class Loop extends Entity
 
 		//todo. Needs to suport 3d.
 		let points =this.verts.map(v=>new THREE.Vector2(v.position.x,v.position.z));
+		//let points2= this.to2D();
 		let isCw=ShapeUtils.isClockWise(points);
 		this.isCw=isCw;
 		console.log(["loop isClockWise:",isCw,JSON.stringify(this.plane.normal)])
@@ -877,6 +878,13 @@ class Loop extends Entity
 		Loop.byId[this.id]=this;
 
 	}
+	reverse()
+	{
+		//this.edges=this.edges.reverse();
+		//this.verts=this.verts.reverse();
+		this.plane = new THREE.Plane(this.plane.normal.negate(),this.plane.constant);
+
+	}	
 	make(face)
 	{
 		this.face=face;
@@ -928,15 +936,19 @@ class Loop extends Entity
 		let origin=new Vector3();//will be filled in.
 		this.plane.coplanarPoint(origin) //NOTE:Loads a coplaner point into origin.
 
-		let normal = this.plane.normal;
+		let normal = this.plane.normal.clone();
 		let pX = new THREE.Vector3().crossVectors(pY, normal)
 		pX.normalize()
 
+		console.log("Plane:"+JSON.stringify(this.plane))
+
+		console.log("Px:"+JSON.stringify(pX))
+		console.log("Py:"+JSON.stringify(pY))
 		//project loop verts onto plane
 		for(var vert of this.verts){
 			let target=new THREE.Vector3();
 			this.plane.projectPoint(vert.position,target)
-
+target=vert.position.clone();
 			let x = target.clone().projectOnVector(pX).distanceTo(origin)
 			if(target.clone().projectOnVector(pX).normalize().distanceTo(pX)<0.00001){
 				x = -x
@@ -947,7 +959,7 @@ class Loop extends Entity
 				y = -y
 			}
 			let v=new THREE.Vector2(-x,-y);
-
+//v=new THREE.Vector2(target.x,target.z);
 			//test
 			// let vt=new THREE.Vector2(target.x,target.z);
 			// console.log("foobar Loop info:"+[JSON.stringify(this.plane),this.isCw])
@@ -965,6 +977,18 @@ class Loop extends Entity
 		}
 		return verts;
 	}
+	toSVG()    
+	{        
+		let points = this.to2D();        
+		let values=points.map(p=>{return [p.x,p.y]}).flat();        
+		let min = Math.min(...values)        
+		let max = Math.max(...values)        
+		let size=max-min;        
+		let scale=512/size//window.svgOverlay.bbox().width;        
+		scale*=0.75;        
+		let svg=points.map(p=>{return ((p.x-min)*scale)+","+((p.y-min)*scale)+" "}).join("")        
+		window.svgOverlay.polygon(svg).fill("none").stroke({ color: '#f06', width: 4, linecap: 'round', linejoin: 'round' })
+    }
 	static testAll()
 	{
 		console.log("Testing all loops...")
@@ -1480,7 +1504,7 @@ class Loop extends Entity
 				let planeB=t			
 				let dot=planeA.normal.dot(planeB.normal)
 				//console.log(dot,dot>0.99999 || dot<-0.99999)
-				return (dot>0.99999)// || dot<-0.99999) 
+				return (dot>0.99999 || dot<-0.99999) 
 			})
 		})
 
@@ -1539,18 +1563,21 @@ let thisEdge=firstEdge;
 		{
 			let testLoop=new Loop(loop)
 			//testLoop.isLeft=true;//
-//			if(!testLoop.isCw)
+			if(!testLoop.isCw)
 			{
 				allLoops.push(testLoop)
 			}
 		} 
-return allLoops		
+//return allLoops		
 		if (loop2.length)
 		{
 			let testLoop=new Loop(loop2)
 			//testLoop.isLeft=false;
 			if(!testLoop.isCw)
 			{
+//todo handle reverse better				
+//let testLoop=new Loop(loop2.reverse())
+//testLoop.reverse();
 				allLoops.push(testLoop)
 			}
 		}
@@ -4385,7 +4412,7 @@ class PushTool {
 				this.firstIp.pick(view,position.x,position.y)
 				this.lineHelper.visible=true;
 
-				let normal = this.currentFace.loop.plane.normal.setLength(100);
+				let normal = this.currentFace.loop.plane.normal.clone().setLength(100);
 				let start = this.firstIp.viewCursor.position.clone();
 				let end = start.clone().add(normal)
 				start.sub(normal)
