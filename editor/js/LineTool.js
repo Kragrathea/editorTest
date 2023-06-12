@@ -867,9 +867,9 @@ class Loop extends Entity
 		}
 
 		//todo. Needs to suport 3d.
-		let points =this.verts.map(v=>new THREE.Vector2(v.position.x,v.position.z));
-		//let points2= this.to2D();
-		let isCw=ShapeUtils.isClockWise(points);
+		//let points =this.verts.map(v=>new THREE.Vector2(v.position.x,v.position.z));
+		let points= this.to2D();
+		let isCw=!ShapeUtils.isClockWise(points);
 		this.isCw=isCw;
 		console.log(["loop isClockWise:",isCw,JSON.stringify(this.plane.normal)])
 
@@ -921,6 +921,35 @@ class Loop extends Entity
 	{
 		let verts=[]
 
+		//let size=2;
+		//let oCam= new THREE.OrthographicCamera(-size,size,-size,size,-100,100)
+		let oCam= new THREE.OrthographicCamera()
+		//oCam.position.set(0,1,0)
+		oCam.lookAt(this.plane.normal)
+		//oCam.updateProjectionMatrix();
+		oCam.updateWorldMatrix();
+		for(var vert of this.verts){
+			let pv = vert.position.clone().project(oCam)
+			let v=new THREE.Vector2(pv.x,pv.y);
+
+			v.userData=vert.id;
+			verts.push(v) 
+		}
+		return verts;
+
+		if(false){
+			for(var vert of this.verts){
+				let pv = vert.position.clone().projectOnPlane(this.plane.normal)
+				let v=new THREE.Vector2(pv.x,pv.z);
+
+				v.userData=vert.id;
+				verts.push(v)
+				//verts.push(new THREE.Vector2(vert.position.x,vert.position.z))
+			}
+			return verts;
+		}
+
+		
 		let pY = new THREE.Vector3()
 		let ti=0;
 		let tempY = new THREE.Vector3()
@@ -1504,7 +1533,7 @@ target=vert.position.clone();
 				let planeB=t			
 				let dot=planeA.normal.dot(planeB.normal)
 				//console.log(dot,dot>0.99999 || dot<-0.99999)
-				return (dot>0.99999 || dot<-0.99999) 
+				return (dot>0.99999)// || dot<-0.99999) 
 			})
 		})
 
