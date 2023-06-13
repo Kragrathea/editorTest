@@ -612,13 +612,68 @@ if(false){
 		for(let edge of allEdges){
 			//if two loops share 1 edge and edges go same dir in both loops then one is inner			
 			let loops=Loop.findAllLoops3d(edge)
-			for(var loop of loops)
+			for(var pair of loops)
 			{
-				//console.log(loop.isLeft)
-				//editor.model.entities.addFace(loop)
+				if(pair.normal && pair.reversed)
+				{
+					console.log("paired")
+					alert("paired")
+				}else{
+					let loop = pair.normal;
+					if(!loop)
+						loop=pair.reverse
 
+						let otherLoops=loop.findCommonLoops()
+						let exists=false;
+						let rebuilt=false;
+						for(let ol of otherLoops)
+						{
+							let result=ol.classifyOtherLoop(loop)
+							console.log("classifyOtherLoop:"+result)
+							//let delLoop=loop.findExistingLoop();
+							if(result==='same')
+							{
+								console.log("Same loop exists:")
+								exists=true;
+								continue;
+							}
+							if(result==='inside')
+							{
+								//if(ol.face)
+								//	this.removeEntity(ol.face)
+								console.log("Inside:")
+								//this.rebuildLoop(ol)
+		
+								this.splitLoopByLoop(ol,loop)
+								exists=true;
+							}
+							if(result==='outside')
+							{
+								console.log("Outside:")
+							}
+							if(result==='unrelated')
+							{
+							}					
+						}
+		
+						if(!exists)
+							window.editor.execute( new AddFaceCommand(window.editor,this, loop ) );	
+
+
+					}
 	
 
+			}	
+		}
+	}
+	xrebuildLoops(newEdges,reinforcedEdges,splitEdges)
+	{
+		let allEdges=newEdges.concat(reinforcedEdges.concat(splitEdges))
+		for(let edge of allEdges){
+			//if two loops share 1 edge and edges go same dir in both loops then one is inner			
+			let loops=Loop.findAllLoops3d(edge)
+			for(var loop of loops)
+			{
 				let otherLoops=loop.findCommonLoops()
 				let exists=false;
 				let rebuilt=false;
@@ -1491,23 +1546,26 @@ target=vert.position.clone();
 
 
 		let loops=Loop.findAllLoops3d(firstEdge)
-		for(var loop of loops)
+		for(var pair of loops)
 		{
 
 			//let plane=new THREE.Plane(new Vector3(0,-1,0),0);
-			let edges=loop.edges//Loop.findLoop(firstEdge,plane,false)
-			for(var edge of edges)
-			{
-				if(loop.edgeReversedIn(firstEdge))
+			if(pair.normal){
+				let edges=pair.normal.edges//Loop.findLoop(firstEdge,plane,false)
+				for(var edge of edges)
+				{
+					//if(loop.edgeReversedIn(firstEdge))
+					
 					editor.view.selection.add(edge,editor.view.selection.greenMaterial)
-				else
-					editor.view.selection.add(edge,editor.view.selection.yellowMaterial)
+				}
 			}
-			// let edges2=Loop.findLoop(firstEdge,plane.clone()/*.negate()*/,true)
-			// for(var edge of edges2)
-			// {
-			// 	editor.view.selection.add(edge,editor.view.selection.yellowMaterial)
-			// }
+			if(pair.reversed){
+				let edges=pair.reversed.edges//Loop.findLoop(firstEdge,plane,false)
+				for(var edge of edges)
+				{
+					editor.view.selection.add(edge,editor.view.selection.yellowMaterial)
+				}
+			}			
 		}
 		editor.view.selection.add(firstEdge,editor.view.selection.redMaterial)
 
@@ -1555,29 +1613,45 @@ let thisEdge=firstEdge;
 			angle = THREE.MathUtils.radToDeg(angle);
 
 			let thisPlane=plane;//edgePlane[1]
-			let loops=Loop.findAllLoops(firstEdge,thisPlane)
-			if(loops.length===2)
+
+			//let loops=Loop.findAllLoops(firstEdge,thisPlane)
+			let pairedLoop=Loop.findPairedLoops(firstEdge,thisPlane)
+			if(pairedLoop.normal || pairedLoop.reversed)
 			{
-				//let result=loops[0].classifyOtherLoop(loops[1]);
-				//console.log("findAllLoops classifyOtherLoop:"+result)
+				allLoops.push(pairedLoop)
 			}
-			for(var loop of loops)
-			{
-				//if(!loop.isLeft)
-				allLoops.push(loop)
-				// for(var edge of loop.edges)
-				// {
-				// 	if(loop.isLeft)
-				// 		editor.view.selection.add(edge,editor.view.selection.greenMaterial)
-				// 	else
-				// 		editor.view.selection.add(edge,editor.view.selection.redMaterial)
-				// }
-				
-			}
-			//console.log("angle:"+angle)
+			// for(var loop of loops)
+			// {
+			// 	allLoops.push(loop)
+			// }
 		}  		
 		return allLoops;
 	}
+	static findPairedLoops(firstEdge,plane=new THREE.Plane(new Vector3(0,-1,0),0))
+	{
+		let loop=Loop.findLoop(firstEdge,plane,false)
+		let loop2=Loop.findLoop(firstEdge,plane,true)
+
+		let result={};
+		if(loop.length)
+		{
+			let testLoop=new Loop(loop)
+			if(!testLoop.isCw)
+			{
+				result.normal=testLoop;
+			}
+		} 
+		if (loop2.length)
+		{
+			let testLoop=new Loop(loop2)
+			if(testLoop.isCw)
+			{
+				result.reversed=testLoop;
+			}
+		}
+		
+		return result;
+	}	
 	static findAllLoops(firstEdge,plane=new THREE.Plane(new Vector3(0,-1,0),0))
 	{
 		//let loop=Loop.findLoop(firstEdge,new Vector3(0,-1,0),-1)
