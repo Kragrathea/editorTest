@@ -617,50 +617,51 @@ if(false){
 				if(pair.normal && pair.reversed)
 				{
 					console.log("paired")
-					alert("paired")
-				}else{
+//return;
+//					alert("paired")
+				}/*else*/{
 					let loop = pair.normal;
 					if(!loop)
-						loop=pair.reverse
+						loop=pair.reversed
 
-						let otherLoops=loop.findCommonLoops()
-						let exists=false;
-						let rebuilt=false;
-						for(let ol of otherLoops)
+					let otherLoops=loop.findCommonLoops()
+					let exists=false;
+					let rebuilt=false;
+					for(let ol of otherLoops)
+					{
+						let result=ol.classifyOtherLoop(loop)
+						console.log("classifyOtherLoop:"+result)
+						//let delLoop=loop.findExistingLoop();
+						if(result==='same')
 						{
-							let result=ol.classifyOtherLoop(loop)
-							console.log("classifyOtherLoop:"+result)
-							//let delLoop=loop.findExistingLoop();
-							if(result==='same')
-							{
-								console.log("Same loop exists:")
-								exists=true;
-								continue;
-							}
-							if(result==='inside')
-							{
-								//if(ol.face)
-								//	this.removeEntity(ol.face)
-								console.log("Inside:")
-								//this.rebuildLoop(ol)
-		
-								this.splitLoopByLoop(ol,loop)
-								exists=true;
-							}
-							if(result==='outside')
-							{
-								console.log("Outside:")
-							}
-							if(result==='unrelated')
-							{
-							}					
+							console.log("Same loop exists:")
+							exists=true;
+							continue;
 						}
-		
-						if(!exists)
-							window.editor.execute( new AddFaceCommand(window.editor,this, loop ) );	
-
-
+						if(result==='inside')
+						{
+							//if(ol.face)
+							//	this.removeEntity(ol.face)
+							console.log("Inside:")
+							//this.rebuildLoop(ol)
+	
+							this.splitLoopByLoop(ol,loop)
+							exists=true;
+						}
+						if(result==='outside')
+						{
+							console.log("Outside:")
+						}
+						if(result==='unrelated')
+						{
+						}					
 					}
+	
+					if(!exists)
+						window.editor.execute( new AddFaceCommand(window.editor,this, loop ) );	
+
+
+				}
 	
 
 			}	
@@ -1644,9 +1645,16 @@ let thisEdge=firstEdge;
 		if (loop2.length)
 		{
 			let testLoop=new Loop(loop2)
-			if(testLoop.isCw)
-			{
-				result.reversed=testLoop;
+			if(loop.length){
+				if(!testLoop.isCw)
+				{
+					result.reversed=testLoop;
+				}
+			}else{
+				if(testLoop.isCw)
+				{
+					result.reversed=testLoop;
+				}				
 			}
 		}
 		
